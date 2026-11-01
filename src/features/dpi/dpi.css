@@ -1,0 +1,379 @@
+.dd-dpi-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--dd-top));
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.dd-dpi-page *,
+.dd-dpi-page *::before,
+.dd-dpi-page *::after {
+  box-sizing: border-box;
+}
+
+.dd-dpi-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dd-dpi-mouse {
+  pointer-events: none;
+}
+
+.dd-dpi-mouse .dd-mouse {
+  height: min(560px, calc(100vh - 172px));
+}
+
+.dd-dpi-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+.dd-dpi-card {
+  padding: 16px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dd-dpi-title {
+  margin-bottom: 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.dd-dpi-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.dd-dpi-muted {
+  color: var(--muted);
+}
+
+.dd-dpi-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--good);
+}
+
+.dd-dpi-dot--off {
+  background-color: var(--off);
+}
+
+.dd-dpi-badge {
+  padding: 2px 10px;
+  font-size: 12px;
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.dd-dpi-value {
+  font-size: 64px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.dd-dpi-unit {
+  margin-bottom: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.dd-dpi-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.dd-dpi-btn-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.dd-dpi-stage-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.dd-dpi-stage,
+.dd-dpi-seg,
+.dd-dpi-ghost {
+  padding: 8px 14px;
+  color: var(--text);
+  font: inherit;
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-dpi-ghost {
+  background-color: transparent;
+}
+
+.dd-dpi-stage:hover,
+.dd-dpi-seg:hover,
+.dd-dpi-ghost:hover {
+  border-color: var(--accent);
+}
+
+.dd-dpi-stage--active,
+.dd-dpi-seg--active,
+.dd-dpi-stage--active:hover,
+.dd-dpi-seg--active:hover {
+  color: var(--on-accent);
+  background-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.dd-dpi-remove {
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+  background: none;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.dd-dpi-remove:hover {
+  color: var(--danger);
+}
+
+.dd-dpi-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dd-dpi-status {
+  color: var(--muted);
+}
+
+.dd-dpi-status--error {
+  color: var(--danger);
+}
+
+.dd-dpi-page button:disabled,
+.dd-dpi-page input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.dd-dpi-range {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dd-dpi-btn-row--tight {
+  margin-top: 0;
+}
+
+.dd-dpi-seg--locked,
+.dd-dpi-page .dd-dpi-seg--locked:disabled {
+  opacity: 0.35;
+  text-decoration: line-through;
+}
+.dd-dpi-support-note {
+  margin-top: 12px;
+  color: var(--muted);
+}
+
+.dd-dpi-diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dd-dpi-diagnostics-log {
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.dd-dpi-page {
+  position: relative;
+}
+
+.dd-dpi-diag {
+  position: relative;
+  z-index: 5;
+}
+
+.dd-dpi-diag-summary {
+  padding: 3px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  list-style: none;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dd-dpi-diag-summary::-webkit-details-marker {
+  display: none;
+}
+
+.dd-dpi-diag-summary::after {
+  content: " \25B4";
+}
+
+.dd-dpi-diag[open] .dd-dpi-diag-summary::after {
+  content: " \25BE";
+}
+
+.dd-dpi-diag-summary:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.dd-dpi-diag-panel {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  width: min(560px, calc(100vw - 48px));
+  max-height: 60vh;
+  padding: 12px;
+  overflow: auto;
+  background-color: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+
+
+.dd-dpi-diagnostics-log {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: pre-wrap;
+  user-select: text;
+}
+
+.dd-dpi-card--compact {
+  padding: 12px 16px;
+}
+
+.dd-dpi-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.dd-dpi-title--inline {
+  margin-bottom: 0;
+}
+
+.dd-dpi-value-inline {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.dd-dpi-range--tight {
+  margin-top: 2px;
+}
+
+.dd-dpi-btn-row--compact {
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.dd-dpi-btn-row--compact .dd-dpi-stage,
+.dd-dpi-btn-row--compact .dd-dpi-ghost {
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+.dd-dpi-right {
+  gap: 12px;
+}
+
+.dd-battery {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dd-battery-icon {
+  display: block;
+  flex: none;
+}
+
+.dd-battery-outline {
+  fill: var(--batt);
+}
+
+.dd-battery-inside {
+  fill: var(--bg-deep);
+}
+
+.dd-battery-fill {
+  fill: var(--batt-fill);
+}
+
+.dd-battery--low .dd-battery-outline {
+  fill: var(--batt);
+}
+
+.dd-battery--low .dd-battery-fill {
+  fill: #db617c;
+}
+
+.dd-battery--charging .dd-battery-outline {
+  fill: var(--batt);
+}
+
+.dd-battery--charging .dd-battery-fill {
+  fill: var(--accent);
+}
+
+.dd-battery-bolt {
+  fill: #f1f9f9;
+  stroke: #0a1428;
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  paint-order: stroke;
+}
+
+.dd-dpi-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}

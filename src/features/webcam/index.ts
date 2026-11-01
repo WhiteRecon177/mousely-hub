@@ -1,0 +1,1 @@
+﻿export { WebcamPage } from "./WebcamPage";

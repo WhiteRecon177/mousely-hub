@@ -1,0 +1,420 @@
+.dd-cam-page {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px;
+  box-sizing: border-box;
+  min-height: calc(100vh - var(--dd-top));
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  text-align: left;
+}
+
+.dd-cam-page *,
+.dd-cam-page *::before,
+.dd-cam-page *::after {
+  box-sizing: border-box;
+}
+
+.dd-cam-left {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+}
+
+.dd-cam-right {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  justify-content: center;
+}
+
+/* Smaller window: everything starts at the top, the preview stays visible while scrolling */
+@media (max-height: 900px) {
+  .dd-cam-left {
+    position: sticky;
+    top: 24px;
+    align-self: start;
+    justify-content: flex-start;
+  }
+
+  .dd-cam-right {
+    justify-content: flex-start;
+  }
+}
+
+/* ---- preview frame (hologram look) ---- */
+
+.dd-cam-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background-color: var(--bg-deep);
+  border: 1px dashed color-mix(in srgb, var(--holo) 55%, transparent);
+  border-radius: 10px;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--holo) 12%, transparent);
+}
+
+.dd-cam-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dd-cam-video--mirrored {
+  transform: scaleX(-1);
+}
+
+.dd-cam-corner {
+  position: absolute;
+  z-index: 2;
+  width: 22px;
+  height: 22px;
+  border: 0 solid var(--holo);
+  pointer-events: none;
+}
+
+.dd-cam-corner--tl { top: 8px; left: 8px; border-top-width: 2px; border-left-width: 2px; }
+.dd-cam-corner--tr { top: 8px; right: 8px; border-top-width: 2px; border-right-width: 2px; }
+.dd-cam-corner--bl { bottom: 8px; left: 8px; border-bottom-width: 2px; border-left-width: 2px; }
+.dd-cam-corner--br { bottom: 8px; right: 8px; border-bottom-width: 2px; border-right-width: 2px; }
+
+.dd-cam-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.dd-cam-empty-text {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.dd-cam-holo {
+  height: 76%;
+  width: auto;
+  margin-bottom: 26px;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--holo) 55%, transparent));
+}
+
+.dd-cam-holo-fill {
+  fill: url(#dd-cam-dots);
+  stroke: none;
+}
+
+.dd-cam-holo-dense {
+  fill: url(#dd-cam-dots-fine);
+  stroke: none;
+}
+
+.dd-cam-holo-edge {
+  fill: url(#dd-cam-dots-fine);
+  stroke: none;
+}
+
+.dd-cam-holo-line {
+  fill: none;
+  stroke: var(--holo);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 11;
+}
+
+.dd-cam-holo-glint {
+  fill: var(--holo-3);
+}
+
+.dd-cam-live {
+  position: absolute;
+  top: 14px;
+  right: 40px;
+  z-index: 2;
+  padding: 2px 8px;
+  color: var(--holo-3);
+  font-size: 11px;
+  letter-spacing: 1px;
+  background-color: rgba(14, 15, 19, 0.7);
+  border: 1px solid color-mix(in srgb, var(--holo) 50%, transparent);
+  border-radius: 10px;
+}
+
+.dd-cam-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dd-cam-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--good);
+}
+
+.dd-cam-dot--off {
+  background-color: var(--off);
+}
+
+.dd-cam-muted {
+  color: var(--muted);
+}
+
+/* ---- cards ---- */
+
+.dd-cam-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dd-cam-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.dd-cam-select,
+.dd-cam-input {
+  width: 100%;
+  padding: 9px 12px;
+  color: var(--text);
+  font: inherit;
+  background-color: var(--field);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  outline: none;
+}
+
+.dd-cam-select:focus,
+.dd-cam-input:focus {
+  border-color: var(--accent);
+}
+
+.dd-cam-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.dd-cam-fps {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ---- sliders ---- */
+
+.dd-cam-control {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dd-cam-control-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dd-cam-control-value {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dd-cam-slider {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+/* ---- buttons ---- */
+
+.dd-cam-btn,
+.dd-cam-seg {
+  padding: 8px 14px;
+  color: var(--text);
+  font: inherit;
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-cam-seg {
+  padding: 6px 12px;
+}
+
+.dd-cam-btn:hover,
+.dd-cam-seg:hover {
+  border-color: var(--accent);
+}
+
+.dd-cam-btn--primary,
+.dd-cam-seg--active,
+.dd-cam-seg--active:hover {
+  color: var(--on-accent);
+  background-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.dd-cam-btn--danger:hover {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.dd-cam-page button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- switch ---- */
+
+.dd-cam-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.dd-cam-switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.dd-cam-switch-track {
+  position: relative;
+  flex: none;
+  width: 36px;
+  height: 20px;
+  background-color: var(--border);
+  border-radius: 10px;
+  transition: background-color 0.15s;
+}
+
+.dd-cam-switch-track::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background-color: var(--text);
+  border-radius: 50%;
+  transition: transform 0.15s;
+}
+
+.dd-cam-switch input:checked + .dd-cam-switch-track {
+  background-color: var(--switch-on);
+}
+
+.dd-cam-switch input:checked + .dd-cam-switch-track::after {
+  transform: translateX(16px);
+}
+
+.dd-cam-switch input:focus-visible + .dd-cam-switch-track {
+  outline: 2px solid var(--holo);
+  outline-offset: 2px;
+}
+
+/* ---- profiles ---- */
+
+.dd-cam-save-row {
+  display: flex;
+  gap: 8px;
+}
+
+.dd-cam-profiles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dd-cam-profile {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dd-cam-profile-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- footer ---- */
+
+.dd-cam-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dd-cam-status {
+  color: var(--muted);
+}
+
+.dd-cam-status--error {
+  color: var(--danger);
+}
+
+/* ---- settings tabs ---- */
+
+.dd-cam-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-cam-tab {
+  padding: 7px 14px;
+  color: var(--muted);
+  font: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-cam-tab:hover {
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.dd-cam-tab--active,
+.dd-cam-tab--active:hover {
+  color: var(--on-accent);
+  background-color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.dd-cam-control--off {
+  opacity: 0.4;
+}

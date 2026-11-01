@@ -1,0 +1,55 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Secrets: never commit signing keys
+*.key
+*.pem
+.tauri/
+
+# Local scratch files (not part of the app)
+/*.ps1
+/no-*.txt
+/PROTOCOLLI_FINALE_COMPLETO_v9.md
+/DeviceDeck_mouse_supportati.xlsx
+/devicedeck-debug.log
+/src-tauri/src/dlog.rs
+
+mouse-dump.txt
+*.log
+*.xlsx
+devicecard-old.ps1
+host-mode.ps1
+mouse-*.ps1
+no-*.txt
+
+*.bak
+*.prima-del-restore
+
+*.bak
+*.prima-del-restore
+*.key
+*.pem
+*.log
+*.xlsx

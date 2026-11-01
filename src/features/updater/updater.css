@@ -1,0 +1,108 @@
+/* Toast: bottom right, over everything */
+.dd-upd-toast {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 60;
+  display: flex;
+  gap: 12px;
+  width: 340px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--panel);
+  color: var(--text);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55), 0 0 24px color-mix(in srgb, var(--holo) 25%, transparent);
+  animation: dd-upd-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+@keyframes dd-upd-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+.dd-upd-toast-icon {
+  display: grid;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 10px;
+  background-color: color-mix(in srgb, var(--holo) 16%, transparent);
+  color: var(--holo);
+}
+
+.dd-upd-toast-title { font-weight: 600; }
+.dd-upd-toast-sub { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.dd-upd-toast-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+.dd-upd-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--holo);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, var(--holo) 18%, transparent);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dd-upd-btn:hover { background-color: color-mix(in srgb, var(--holo) 32%, transparent); }
+.dd-upd-btn--ghost { border-color: var(--btn-border); background: transparent; color: var(--muted); }
+.dd-upd-btn--ghost:hover { background-color: var(--hover); color: var(--text); }
+
+/* Full screen while it downloads */
+.dd-upd-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  animation: dd-upd-fade 0.25s ease-out;
+}
+@keyframes dd-upd-fade { from { opacity: 0; } to { opacity: 1; } }
+
+.dd-upd-card {
+  width: min(420px, 86vw);
+  padding: 32px 30px 26px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background-color: var(--panel);
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px color-mix(in srgb, var(--holo) 22%, transparent);
+}
+
+.dd-upd-spinner {
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 16px;
+  border: 3px solid color-mix(in srgb, var(--holo) 20%, transparent);
+  border-top-color: var(--holo);
+  border-radius: 50%;
+  animation: dd-upd-spin 0.9s linear infinite;
+}
+@keyframes dd-upd-spin { to { transform: rotate(360deg); } }
+
+.dd-upd-title { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.dd-upd-version { margin-top: 4px; font-size: 13px; color: var(--holo); }
+
+.dd-upd-bar {
+  height: 8px;
+  margin-top: 22px;
+  overflow: hidden;
+  border-radius: 999px;
+  background-color: var(--off-track);
+}
+.dd-upd-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--holo) 55%, transparent), var(--holo));
+  box-shadow: 0 0 12px var(--holo);
+  transition: width 0.25s ease-out;
+}
+.dd-upd-fill--indeterminate { width: 35%; animation: dd-upd-slide 1.2s ease-in-out infinite; }
+@keyframes dd-upd-slide { from { margin-left: -35%; } to { margin-left: 100%; } }
+
+.dd-upd-status { display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; color: var(--muted); }
+.dd-upd-hint { margin-top: 18px; font-size: 11px; color: var(--muted); opacity: 0.75; }

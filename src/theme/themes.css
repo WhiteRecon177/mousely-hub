@@ -1,0 +1,154 @@
+/*
+ * Colours of the three themes. Every screen reads these variables:
+ * to change a look, change it here only.
+ * The theme in use is the data-theme attribute on <html> (set by theme.ts).
+ */
+
+/* ---------- Ocean Glass (default) ---------- */
+:root,
+:root[data-theme="ocean"] {
+  --bg: #04162c;
+  --bg-deep: #03101f;
+  --bg-image:
+    radial-gradient(1100px 520px at 30% -8%, rgba(20, 110, 190, 0.45), transparent 62%),
+    linear-gradient(180deg, #05203f 0%, #031325 100%);
+  --bar-bg: rgba(4, 24, 48, 0.6);
+  --panel: rgba(5, 28, 56, 0.97);
+  --card: rgba(8, 42, 82, 0.5);
+  --card-2: rgba(14, 66, 118, 0.5);
+  --hover: rgba(22, 88, 150, 0.55);
+  --field: #0b2d52;
+  --border: rgba(56, 170, 240, 0.3);
+  --btn-border: rgba(56, 170, 240, 0.38);
+  --off-track: rgba(120, 170, 220, 0.3);
+  --off: #5f7f9f;
+  --text: #eaf6ff;
+  --muted: #8db3d3;
+  --accent: #00b4ff;
+  --accent-soft: #7dd3fc;
+  --on-accent: #ffffff;
+  --accent-glow: 0 0 14px rgba(0, 180, 255, 0.5);
+  --switch-on: #00b4ff;
+  --danger: #ff5d6c;
+  --rec: #ff4d4d;
+  --warn: #f5a524;
+  --good: #22e06b;
+  --holo: #38bdf8;
+  --holo-2: #7dd3fc;
+  --holo-3: #bae6fd;
+  --batt: #9cdcf5;
+  --batt-fill: #93e0e9;
+  --radius: 10px;
+  --card-shadow: 0 0 22px rgba(0, 140, 255, 0.1), inset 0 0 0 1px rgba(120, 200, 255, 0.05);
+}
+
+/* ---------- Crimson ---------- */
+:root[data-theme="crimson"] {
+  --bg: #0b0b0d;
+  --bg-deep: #070708;
+  --bg-image: radial-gradient(900px 420px at 50% -10%, rgba(255, 30, 60, 0.07), transparent 65%);
+  --bar-bg: #0b0b0d;
+  --panel: #131315;
+  --card: #151517;
+  --card-2: #1d1d20;
+  --hover: #26262a;
+  --field: #1d1d20;
+  --border: #2a2a2f;
+  --btn-border: #34343a;
+  --off-track: #3a3a40;
+  --off: #6b6b72;
+  --text: #f3f3f5;
+  --muted: #8e8e97;
+  --accent: #ff1f3d;
+  --accent-soft: #ff7a8c;
+  --on-accent: #ffffff;
+  --accent-glow: 0 0 10px rgba(255, 31, 61, 0.35);
+  --switch-on: #ff1f3d;
+  --danger: #ff4a5e;
+  --rec: #ff2a44;
+  --warn: #f5a524;
+  --good: #22d36b;
+  --holo: #ff2443;
+  --holo-2: #ff5a70;
+  --holo-3: #ffb3bd;
+  --batt: #ff8a99;
+  --batt-fill: #ff5a70;
+  --radius: 8px;
+  --card-shadow: none;
+}
+
+/* ---------- Monochrome ---------- */
+:root[data-theme="mono"] {
+  --bg: #0e0e0f;
+  --bg-deep: #080809;
+  --bg-image: none;
+  --bar-bg: #0e0e0f;
+  --panel: #171719;
+  --card: #18181a;
+  --card-2: #222225;
+  --hover: #2c2c30;
+  --field: #222225;
+  --border: #2d2d31;
+  --btn-border: #2d2d31;
+  --off-track: #3a3a3f;
+  --off: #6b6b72;
+  --text: #f4f4f5;
+  --muted: #8b8b92;
+  --accent: #e8e8eb;
+  --accent-soft: #c9c9cf;
+  --on-accent: #121214;
+  --accent-glow: none;
+  --switch-on: #74747c;
+  --danger: #d9d9de;
+  --rec: #f4f4f5;
+  --warn: #c9c9cf;
+  --good: #f4f4f5;
+  --holo: #f2f2f2;
+  --holo-2: #d2d2d6;
+  --holo-3: #ffffff;
+  --batt: #d2d2d6;
+  --batt-fill: #f2f2f2;
+  --radius: 8px;
+  --card-shadow: none;
+}
+
+/* ---------- shared skin ---------- */
+:root {
+  color-scheme: dark;
+}
+
+option {
+  background-color: var(--field);
+  color: var(--text);
+}
+
+.dd-card,
+.dd-dpi-card,
+.dd-cam-card,
+.dd-set-panel {
+  box-shadow: var(--card-shadow);
+}
+
+:root[data-theme="ocean"] .dd-card,
+:root[data-theme="ocean"] .dd-dpi-card,
+:root[data-theme="ocean"] .dd-cam-card,
+:root:not([data-theme]) .dd-card,
+:root:not([data-theme]) .dd-dpi-card,
+:root:not([data-theme]) .dd-cam-card {
+  backdrop-filter: blur(6px);
+}
+
+/* The two big outlines of the mouse and webcam drawings glow in the theme colour */
+.dd-mouse,
+.dd-cam-holo {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--holo) 45%, transparent));
+}
+
+:root[data-theme="mono"] .dd-mouse,
+:root[data-theme="mono"] .dd-cam-holo {
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.18));
+}
+
+.dd-mouse-dot { fill: var(--holo); }
+.dd-mouse-dot--dense { fill: var(--holo-2); }
+.dd-mouse-dot--lit { fill: var(--holo-3); }

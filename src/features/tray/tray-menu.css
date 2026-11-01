@@ -1,0 +1,73 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--bg);
+  user-select: none;
+  cursor: default;
+}
+
+.dd-tm {
+  box-sizing: border-box;
+  height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 13px;
+}
+
+.dd-tm-head {
+  padding: 6px 10px 8px;
+  min-height: 38px;
+}
+
+.dd-tm-title {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-tm-status {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--holo-2);
+}
+
+.dd-tm-line {
+  height: 1px;
+  margin: 2px 4px 6px;
+  background-color: var(--border);
+  opacity: 0.7;
+}
+
+.dd-tm-item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dd-tm-item:hover {
+  background-color: color-mix(in srgb, var(--holo) 14%, transparent);
+}
+
+.dd-tm-item--quit:hover {
+  background-color: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: #ffd5d5;
+}

@@ -1,0 +1,1 @@
+export { DpiPage } from "./DpiPage";

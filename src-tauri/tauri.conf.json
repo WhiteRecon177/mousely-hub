@@ -1,0 +1,81 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Mousely Hub",
+  "version": "0.1.0",
+  "identifier": "io.github.mouselyhub.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Mousely Hub",
+        "width": 1180,
+        "height": 720,
+        "minWidth": 1000,
+        "minHeight": 640,
+        "center": true,
+        "visible": false,
+        "decorations": false,
+        "maximizable": false,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installMode": "currentUser",
+        "displayLanguageSelector": false,
+        "languages": [
+          "English",
+          "Italian",
+          "Spanish",
+          "German",
+          "French",
+          "PortugueseBR",
+          "Russian",
+          "SimpChinese"
+        ]
+      }
+    },
+    "macOS": {
+      "minimumSystemVersion": "10.15",
+      "signingIdentity": "-"
+    },
+    "publisher": "Mousely Hub contributors",
+    "copyright": "Copyright (c) 2026 Mousely Hub contributors. MIT License.",
+    "category": "Utility",
+    "shortDescription": "Control your PC peripherals without the heavy vendor software.",
+    "longDescription": "Mousely Hub shows battery, DPI and polling rate of your mouse, records macros and controls webcam settings. Open source, no account, no telemetry."
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEY5NUI2ODcwQTZCQkM3MzIKUldReXg3dW1jR2hiK2ZiWE5aS0hXRjVkdE5DRnV4Q0RqS1F1QXhPb2hnMDNTYkNDQVVsbWJ0aUYK",
+      "endpoints": [
+        "https://github.com/WhiteRecon177/mousely-hub/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}

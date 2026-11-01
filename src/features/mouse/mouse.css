@@ -1,0 +1,567 @@
+/* colours come from the theme (src/theme/themes.css) */
+.dd-mouse-root {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--dd-top));
+  min-width: 980px;
+  box-sizing: border-box;
+  background-color: transparent;
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+.dd-mouse-root *,
+.dd-mouse-root *::before,
+.dd-mouse-root *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- top bar ---------- */
+.dd-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dd-toggle {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--card-2);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dd-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: var(--muted);
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.dd-toggle--on {
+  background-color: var(--switch-on);
+  border-color: var(--switch-on);
+}
+
+.dd-toggle--on .dd-toggle-knob {
+  transform: translateX(20px);
+  background-color: #ffffff;
+}
+
+/* ---------- layout ---------- */
+.dd-mouse-page {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 280px 1fr 380px;
+  gap: 16px;
+  padding: 16px;
+}
+
+.dd-card {
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.dd-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.dd-right {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dd-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  min-height: 0;
+}
+
+.dd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-section:last-child {
+  border-bottom: 0;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.dd-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.dd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.dd-muted {
+  color: var(--muted);
+}
+
+.dd-hint {
+  color: var(--warn);
+  font-size: 12px;
+}
+
+.dd-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.dd-message {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dd-empty {
+  color: var(--muted);
+  font-style: italic;
+  text-align: center;
+  padding: 14px;
+}
+
+/* ---------- form controls ---------- */
+.dd-mouse-root select,
+.dd-mouse-root input[type="text"],
+.dd-mouse-root input[type="number"] {
+  background-color: var(--field);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.dd-mouse-root select:focus,
+.dd-mouse-root input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.dd-mouse-root input[type="number"] {
+  width: 64px;
+}
+
+/* ---------- left column ---------- */
+.dd-left {
+  gap: 12px;
+}
+
+.dd-btn-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dd-btn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 12px;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.dd-btn-row:hover {
+  background-color: var(--card-2);
+}
+
+.dd-btn-row--selected {
+  border-color: var(--accent);
+  background-color: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.dd-btn-row--detected {
+  animation: dd-flash 0.6s ease-in-out 3;
+}
+
+.dd-btn-row--locked {
+  color: var(--muted);
+}
+
+.dd-btn-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dd-badge {
+  padding: 2px 10px;
+  font-size: 12px;
+  color: var(--text);
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dd-detect {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  padding: 12px;
+  color: var(--text);
+  font: inherit;
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-detect:hover {
+  border-color: var(--accent);
+}
+
+/* ---------- mouse drawing (hologram) ---------- */
+.dd-mouse {
+  height: min(560px, calc(100vh - 262px));
+  width: auto;
+  overflow: visible;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--holo) 45%, transparent));
+  transition: opacity 0.3s, filter 0.3s;
+}
+
+.dd-mouse--off {
+  opacity: 0.28;
+  filter: grayscale(0.7);
+  animation: none;
+}
+
+.dd-holo-tint {
+  fill: color-mix(in srgb, var(--holo) 4%, transparent);
+}
+
+.dd-holo-dots {
+  fill: url(#dd-dots);
+  opacity: 0.6;
+}
+
+.dd-holo-rim {
+  fill: none;
+  stroke: url(#dd-dots-dense);
+  stroke-width: 14;
+  opacity: 0.5;
+}
+
+.dd-holo-outline {
+  fill: none;
+  stroke: var(--holo);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 3.2;
+}
+
+.dd-holo-detail {
+  fill: none;
+  stroke: var(--holo);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 3;
+  opacity: 0.85;
+}
+
+.dd-zone {
+  fill: var(--holo);
+  fill-opacity: 0.02;
+  stroke: none;
+  cursor: pointer;
+  transition: fill-opacity 0.15s, filter 0.15s;
+}
+
+.dd-zone:hover {
+  fill-opacity: 0.14;
+}
+
+.dd-zone--locked {
+  cursor: not-allowed;
+}
+
+.dd-zone[data-zone="middle"]:not(.dd-zone--selected) {
+  fill: url(#dd-dots-dense);
+  fill-opacity: 0.9;
+}
+
+.dd-zone--selected,
+.dd-zone--selected:hover {
+  fill: url(#dd-dots-lit);
+  fill-opacity: 1;
+  stroke: var(--holo-3);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.1 2.2;
+  filter: drop-shadow(0 0 4px var(--holo)) drop-shadow(0 0 9px color-mix(in srgb, var(--holo) 80%, transparent));
+}
+
+.dd-zone--detected {
+  animation: dd-zone-pulse 0.6s ease-in-out 3;
+}
+
+.dd-scan-clip {
+  pointer-events: none;
+}
+
+.dd-scan {
+  pointer-events: none;
+  animation: dd-scan-move 1.8s ease-in-out infinite;
+}
+
+.dd-mouse--off .dd-scan {
+  animation: none;
+  opacity: 0;
+}
+
+@keyframes dd-scan-move {
+  0% { transform: translateY(-20px); }
+  100% { transform: translateY(490px); }
+}
+
+@keyframes dd-flicker {
+  0%, 92%, 100% { opacity: 1; }
+  94% { opacity: 0.82; }
+  96% { opacity: 1; }
+  97% { opacity: 0.9; }
+}
+
+@keyframes dd-zone-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes dd-flash {
+  0%, 100% { background-color: color-mix(in srgb, var(--accent) 12%, transparent); }
+  50% { background-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+}
+
+/* ---------- name row + icon buttons ---------- */
+.dd-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.dd-name-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.dd-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--text);
+  background-color: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-icon-btn:hover:not(:disabled) {
+  background-color: var(--card-2);
+}
+
+.dd-icon-btn:disabled,
+.dd-mini-btn:disabled,
+.dd-record:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.dd-icon-btn--primary {
+  color: var(--accent);
+}
+
+.dd-icon-btn--danger:hover:not(:disabled),
+.dd-mini-btn--danger:hover:not(:disabled) {
+  color: var(--danger);
+}
+
+.dd-mini-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--text);
+  background-color: var(--card-2);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.dd-mini-btn:hover:not(:disabled) {
+  border-color: var(--border);
+}
+
+/* ---------- right panel ---------- */
+.dd-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.dd-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  box-shadow: var(--accent-glow);
+}
+
+.dd-record {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  color: var(--text);
+  font: inherit;
+  background-color: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.dd-record svg {
+  color: var(--rec);
+}
+
+.dd-record--active {
+  border-color: var(--danger);
+  animation: dd-dot-pulse 1s infinite;
+}
+
+@keyframes dd-dot-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 60%, transparent); }
+  70% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--danger) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--danger) 0%, transparent); }
+}
+
+.dd-repeat {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.dd-actions-list {
+  max-height: 170px;
+  overflow-y: auto;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12px;
+  background-color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dd-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-action-row:last-child {
+  border-bottom: 0;
+}
+
+.dd-collapse-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.dd-macro-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dd-macro-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.dd-macro-row:hover {
+  background-color: var(--card-2);
+}
+
+.dd-macro-row--highlight {
+  background-color: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.dd-macro-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

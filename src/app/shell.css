@@ -1,0 +1,208 @@
+body {
+  background-color: var(--bg);
+  background-image: var(--bg-image);
+  background-attachment: fixed;
+  color: var(--text);
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.dd-shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 57px;
+  box-sizing: border-box;
+  padding: 0 16px 0 6px;
+  background-color: var(--bar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-brand {
+  flex: none;
+  display: block;
+  width: 306px;
+  height: 57px;
+  /* the name keeps one neutral light colour in every theme; only the cord and the knot follow the theme */
+  color: #ececf0;
+  overflow: visible;
+}
+
+.dd-brand-main {
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dd-brand-main circle {
+  fill: none;
+}
+
+.dd-brand-main circle.dd-brand-bg {
+  fill: var(--bg);
+}
+
+.dd-brand-accent {
+  color: var(--holo);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--holo) 40%, transparent));
+}
+
+.dd-brand-tail {
+  fill: url(#dd-tail-grad);
+  stroke: none;
+}
+
+.dd-brand-fill {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* the middle of the bar: cords run behind the tabs, from the knot to the gear */
+.dd-mid {
+  position: relative;
+  flex: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.dd-wire {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  color: var(--holo);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--holo) 40%, transparent));
+}
+
+.dd-wire--left {
+  left: -24px;
+}
+
+.dd-wire--right {
+  right: 0;
+}
+
+.dd-wire-lines {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.3;
+  stroke-linecap: round;
+}
+
+.dd-wire-dot {
+  fill: currentColor;
+}
+
+.dd-tabs {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  background-color: var(--bg);
+}
+
+.dd-tab {
+  padding: 8px 20px;
+  border-radius: var(--radius);
+  background-color: var(--card);
+  color: var(--text);
+  border: 1px solid var(--btn-border);
+  font: inherit;
+  cursor: pointer;
+}
+
+.dd-tab:hover {
+  background-color: var(--card-2);
+}
+
+.dd-tab--active,
+.dd-tab--active:hover {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--accent-glow);
+}
+
+/* ---- own title bar (32px) ---- */
+:root {
+  --dd-top: 89px; /* title bar 32px + header 57px: pages subtract it from the window height */
+}
+
+.dd-titlebar {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  box-sizing: border-box;
+  padding-left: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--bg) 55%, #000) 0%, color-mix(in srgb, var(--bg) 85%, #000) 100%);
+  border-bottom: 1px solid color-mix(in srgb, var(--holo) 22%, transparent);
+  user-select: none;
+}
+
+.dd-titlebar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--holo) 60%, transparent) 50%, transparent);
+  pointer-events: none;
+}
+
+.dd-titlebar-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.dd-titlebar-logo {
+  color: var(--holo);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--holo) 60%, transparent));
+}
+
+.dd-titlebar-btns {
+  display: flex;
+  height: 100%;
+}
+
+.dd-tb-btn {
+  display: grid;
+  width: 46px;
+  height: 100%;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: default;
+}
+
+.dd-tb-btn:hover {
+  background-color: color-mix(in srgb, var(--holo) 18%, transparent);
+  color: var(--text);
+}
+
+.dd-tb-btn--close:hover {
+  background-color: #e81123;
+  color: #fff;
+}
+
+.dd-tb-btn--gh {
+  width: 40px;
+}
+
+.dd-tb-btn--gh:hover {
+  color: var(--holo);
+}
