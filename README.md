@@ -127,6 +127,21 @@ npm run tauri build -- --bundles nsis   # build the installer
 
 Built with [Tauri 2](https://tauri.app) (Rust) + React + Vite + TypeScript. How releases and automatic updates work: [`docs/UPDATES.md`](docs/UPDATES.md).
 
+## Support Mousely Hub
+
+Mousely Hub is free, open source and made in my spare time. If it is useful to you, these things help a lot:
+
+- **A star on GitHub**: it costs you a click and helps other people find the project.
+- **Test your mouse**: if you own one of the experimental mice, your report turns it into a tested one.
+- **Report a bug or suggest an idea** in the [issues](https://github.com/WhiteRecon177/mousely-hub/issues) or the [discussions](https://github.com/WhiteRecon177/mousely-hub/discussions).
+- **Share it** with a friend who is tired of heavy vendor software.
+
+<p align="center">
+  <a href="https://github.com/WhiteRecon177/mousely-hub/stargazers"><img alt="Star on GitHub" src="https://img.shields.io/github/stars/WhiteRecon177/mousely-hub?style=for-the-badge&logo=github&label=STAR&color=8b5cf6"></a>
+  <a href="#do-you-own-one-of-these-mice-please-test-it"><img alt="Test your mouse" src="https://img.shields.io/badge/TEST-YOUR%20MOUSE-06b6d4?style=for-the-badge"></a>
+  <a href="https://github.com/WhiteRecon177/mousely-hub/issues/new"><img alt="Report a bug" src="https://img.shields.io/badge/ISSUES-REPORT%20A%20BUG-ef4444?style=for-the-badge&logo=github"></a>
+</p>
+
 ## Contributing
 
 Bug reports, mouse data, translations and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
