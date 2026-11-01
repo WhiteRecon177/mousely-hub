@@ -10,6 +10,20 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/WhiteRecon177/mousely-hub/releases/latest"><img alt="release" src="https://img.shields.io/github/v/release/WhiteRecon177/mousely-hub?label=release&color=8b5cf6"></a>
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078d4">
+  <img alt="macOS" src="https://img.shields.io/badge/macOS-10.15%2B-555555">
+  <img alt="Linux" src="https://img.shields.io/badge/Linux-Ubuntu%20%7C%20Debian%20%7C%20Fedora-e95420">
+  <a href="https://github.com/WhiteRecon177/mousely-hub/blob/main/LICENSE"><img alt="license" src="https://img.shields.io/badge/license-MIT-22c55e"></a>
+  <img alt="made with Rust and Tauri" src="https://img.shields.io/badge/made%20with-Rust%20%2B%20Tauri-f472b6">
+  <img alt="languages" src="https://img.shields.io/badge/languages-8-06b6d4">
+  <img alt="telemetry" src="https://img.shields.io/badge/telemetry-none-16a34a">
+  <a href="https://github.com/WhiteRecon177/mousely-hub/releases"><img alt="downloads" src="https://img.shields.io/github/downloads/WhiteRecon177/mousely-hub/total?color=f59e0b"></a>
+  <a href="https://github.com/WhiteRecon177/mousely-hub/stargazers"><img alt="stars" src="https://img.shields.io/github/stars/WhiteRecon177/mousely-hub?logo=github&color=eab308"></a>
+  <a href="https://github.com/WhiteRecon177/mousely-hub/issues"><img alt="issues" src="https://img.shields.io/github/issues/WhiteRecon177/mousely-hub?color=ef4444"></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/WhiteRecon177/mousely-hub/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp; <a href="#getting-started">Getting started</a>
   &nbsp;·&nbsp; <a href="#privacy">Privacy</a>
