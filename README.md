@@ -132,7 +132,7 @@ Bug reports, mouse data, translations and pull requests are welcome: see [CONTRI
 ## Credits
 
 <p align="center">
-  <a href="https://github.com/Luk3KJ"><img src="docs/credits.svg" alt="Interface design by Luk3KJ (AURA KING)" width="720"></a>
+  <a href="https://github.com/Luk3KJ"><img src="docs/credits.png" alt="Interface design by Luk3KJ (AURA KING)" width="560"></a>
 </p>
 
 ## Trademarks and independence
