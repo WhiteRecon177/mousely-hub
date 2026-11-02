@@ -117,6 +117,7 @@ Function ${UN}DarkGuiInit
   System::Call 'dwmapi::DwmSetWindowAttribute(p $HWNDPARENT, i 34, *i ${DK_BGREF}, i 4)'
   Push $HWNDPARENT
   Call ${UN}DarkPaint
+  Call ${UN}SkChrome
 FunctionEnd
 !macroend
 !insertmacro DK_DEFINE ""
@@ -253,11 +254,346 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 !define MUI_LANGDLL_REGISTRY_KEY "${MANUPRODUCTKEY}"
 !define MUI_LANGDLL_REGISTRY_VALUENAME "Installer Language"
 
+; ===== Mousely Hub custom installer skin: pages drawn as images, controls placed on top =====
+!searchreplace SK_DIR "${SIDEBARIMAGE}" "sidebar.bmp" ""
+!define SK_W 760
+!define SK_H 500
+
+Var SkW
+Var SkH
+Var SkBg
+Var SkPfx
+Var SkImg
+Var SkReady
+Var SkDlg
+Var SkInst
+Var SkDir
+Var SkPct
+Var SkVar
+Var SkRun
+Var SkProg
+Var SkC1
+Var SkC2
+Var SkCk
+
+!macro SK_FILE NAME
+  File "/oname=$PLUGINSDIR\${NAME}.bmp" "${SK_DIR}${NAME}.bmp"
+!macroend
+
+; Moves a control to a rectangle given in design pixels (760x500), scaled to the window.
+; Leaves the scaled width/height in $8/$9. Clobbers $6-$9.
+!macro SK_PLACE HW X Y W H
+  IntOp $6 ${X} * $SkW
+  IntOp $6 $6 / ${SK_W}
+  IntOp $7 ${Y} * $SkH
+  IntOp $7 $7 / ${SK_H}
+  IntOp $8 ${W} * $SkW
+  IntOp $8 $8 / ${SK_W}
+  IntOp $9 ${H} * $SkH
+  IntOp $9 $9 / ${SK_H}
+  System::Call 'user32::MoveWindow(p ${HW},i r6,i r7,i r8,i r9,i 1)'
+!macroend
+
+; Clickable picture (a crop of the page image): bitmap static with SS_NOTIFY, so it paints itself.
+!macro SK_BTNX VAR X Y W H FUNC
+  nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 10u 10u ""
+  Pop ${VAR}
+  !insertmacro SK_PLACE ${VAR} ${X} ${Y} ${W} ${H}
+  ${NSD_OnClick} ${VAR} ${FUNC}
+!macroend
+!macro SK_BTN VAR X Y W H FUNC FILE
+  !insertmacro SK_BTNX ${VAR} ${X} ${Y} ${W} ${H} ${FUNC}
+  Push ${VAR}
+  Push "$SkImg\${FILE}-$SkPfx.bmp"
+  Call SkSetCtlImg
+!macroend
+
+; Full-page background image: created, then pushed to the very bottom of the z-order.
+!macro SK_BG FILE
+  ${NSD_CreateBitmap} 0 0 100% 100% ""
+  Pop $SkBg
+  Push $SkBg
+  Push "$SkImg\${FILE}-$SkPfx.bmp"
+  Call SkSetImg
+!macroend
+!macro SK_BOTTOM
+  System::Call 'user32::SetWindowPos(p $SkBg,p 1,i 0,i 0,i 0,i 0,i 0x13)'
+!macroend
+
+Function SkExtract
+  InitPluginsDir
+  StrCpy $SkImg $PLUGINSDIR
+  !insertmacro SK_FILE chk
+  !insertmacro SK_FILE p1-en
+  !insertmacro SK_FILE p2-en
+  !insertmacro SK_FILE p3-en
+  !insertmacro SK_FILE p4s-a-en
+  !insertmacro SK_FILE p4s-b-en
+  !insertmacro SK_FILE p4u-a-en
+  !insertmacro SK_FILE p4u-b-en
+  !insertmacro SK_FILE p5-a-en
+  !insertmacro SK_FILE p5-b-en
+  !insertmacro SK_FILE c-p1-b-cancel-en
+  !insertmacro SK_FILE c-p1-b-next-en
+  !insertmacro SK_FILE c-p2-b-back-en
+  !insertmacro SK_FILE c-p2-b-browse-en
+  !insertmacro SK_FILE c-p2-b-install-en
+  !insertmacro SK_FILE c-p5-b-fin-en
+  !insertmacro SK_FILE c-p4s-b-cancel-en
+  !insertmacro SK_FILE c-p4s-b-next-en
+  !insertmacro SK_FILE c-p4s-card1-a-en
+  !insertmacro SK_FILE c-p4s-card1-b-en
+  !insertmacro SK_FILE c-p4s-card2-a-en
+  !insertmacro SK_FILE c-p4s-card2-b-en
+  !insertmacro SK_FILE c-p4u-b-cancel-en
+  !insertmacro SK_FILE c-p4u-b-next-en
+  !insertmacro SK_FILE c-p4u-card1-a-en
+  !insertmacro SK_FILE c-p4u-card1-b-en
+  !insertmacro SK_FILE c-p4u-card2-a-en
+  !insertmacro SK_FILE c-p4u-card2-b-en
+  !insertmacro SK_FILE c-p5-ck-a-en
+  !insertmacro SK_FILE c-p5-ck-b-en
+FunctionEnd
+
+Function SkSetImg
+  Exch $1
+  Exch
+  Exch $0
+  Push $2
+  Push $3
+  System::Call 'user32::LoadImage(p 0,t r1,i 0,i $SkW,i $SkH,i 0x10)p .r2'
+  SendMessage $0 0x172 0 $2 $3
+  ${If} $3 <> 0
+    System::Call 'gdi32::DeleteObject(p r3)'
+  ${EndIf}
+  Pop $3
+  Pop $2
+  Pop $0
+  Pop $1
+FunctionEnd
+
+; Stack: control hwnd, bitmap file. Shows the bitmap scaled to the control's own size.
+Function SkSetCtlImg
+  Exch $1
+  Exch
+  Exch $0
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  System::Alloc 16
+  Pop $5
+  System::Call 'user32::GetClientRect(p r0,p r5)'
+  System::Call '*$5(i,i,i.r3,i.r4)'
+  System::Free $5
+  System::Call 'user32::LoadImage(p 0,t r1,i 0,i r3,i r4,i 0x10)p .r2'
+  SendMessage $0 0x172 0 $2 $3
+  ${If} $3 <> 0
+    System::Call 'gdi32::DeleteObject(p r3)'
+  ${EndIf}
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $0
+  Pop $1
+FunctionEnd
+
+; Sizes the window once, hides the standard buttons and header on every page.
+Function SkChrome
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  ${If} $SkReady <> 1
+    StrCpy $SkReady 1
+    StrCpy $SkPfx "en"
+    Call SkExtract
+    StrCpy $0 96
+    System::Call 'user32::GetDpiForWindow(p $HWNDPARENT)i .r0'
+    ${If} $0 < 96
+      StrCpy $0 96
+    ${EndIf}
+    IntOp $SkW ${SK_W} * $0
+    IntOp $SkW $SkW / 96
+    IntOp $SkH ${SK_H} * $0
+    IntOp $SkH $SkH / 96
+    System::Alloc 16
+    Pop $1
+    System::Call 'user32::GetWindowRect(p $HWNDPARENT,p r1)'
+    System::Call '*$1(i.r2,i.r3,i.r4,i.r5)'
+    IntOp $6 $4 - $2
+    IntOp $7 $5 - $3
+    System::Call 'user32::GetClientRect(p $HWNDPARENT,p r1)'
+    System::Call '*$1(i,i,i.r4,i.r5)'
+    IntOp $6 $6 - $4
+    IntOp $7 $7 - $5
+    IntOp $6 $6 + $SkW
+    IntOp $7 $7 + $SkH
+    System::Free $1
+    System::Call 'user32::GetSystemMetrics(i 0)i .r2'
+    System::Call 'user32::GetSystemMetrics(i 1)i .r3'
+    IntOp $2 $2 - $6
+    IntOp $2 $2 / 2
+    IntOp $3 $3 - $7
+    IntOp $3 $3 / 2
+    System::Call 'user32::SetWindowPos(p $HWNDPARENT,p 0,i r2,i r3,i r6,i r7,i 0x0004)'
+    GetDlgItem $1 $HWNDPARENT 1018
+    System::Call 'user32::MoveWindow(p r1,i 0,i 0,i $SkW,i $SkH,i 1)'
+    FindWindow $2 "#32770" "" $HWNDPARENT
+    ${If} $2 <> 0
+      System::Call 'user32::MoveWindow(p r2,i 0,i 0,i $SkW,i $SkH,i 1)'
+    ${EndIf}
+  ${EndIf}
+  ; hide every outer control except the page area (NSIS shows them again on each page)
+  StrCpy $1 0
+  sk_hide_loop:
+    FindWindow $1 "" "" $HWNDPARENT $1
+    IntCmp $1 0 sk_hide_done
+    System::Call 'user32::GetClassName(p r1,t .r2,i 40)'
+    StrCmp $2 "#32770" sk_hide_loop
+    System::Call 'user32::GetDlgCtrlID(p r1)i .r3'
+    StrCmp $3 1018 sk_hide_loop
+    ShowWindow $1 0
+    Goto sk_hide_loop
+  sk_hide_done:
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+Function SkNext
+  SendMessage $HWNDPARENT 0x408 1 0
+FunctionEnd
+Function SkBack
+  SendMessage $HWNDPARENT 0x408 -1 0
+FunctionEnd
+Function SkCancel
+  SendMessage $HWNDPARENT 0x10 0 0
+FunctionEnd
+
+; Called from the install sections: Push 1|2|3, Call SkStep (checks a step and updates the percentage).
+Function SkStep
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  ${If} $SkInst = 1
+    SendMessage $SkProg 0x408 0 0 $1
+    SendMessage $SkProg 0x407 0 0 $2
+    ${If} $2 > 0
+      IntOp $1 $1 * 100
+      IntOp $1 $1 / $2
+    ${Else}
+      StrCpy $1 0
+    ${EndIf}
+    ${If} $0 = 3
+      StrCpy $1 100
+    ${EndIf}
+    SendMessage $SkPct 0xC 0 "STR:$1%"
+    ${If} $0 = 1
+      StrCpy $2 241
+    ${ElseIf} $0 = 2
+      StrCpy $2 281
+    ${Else}
+      StrCpy $2 321
+    ${EndIf}
+    System::Call 'user32::CreateWindowEx(i 0,t "STATIC",t "",i 0x5000000E,i 0,i 0,i 10,i 10,p $SkDlg,p 0,p 0,p 0)p .r3'
+    !insertmacro SK_PLACE $3 262 $2 22 22
+    System::Call 'user32::LoadImage(p 0,t "$SkImg\chk.bmp",i 0,i r8,i r9,i 0x10)p .r4'
+    SendMessage $3 0x172 0 $4
+    System::Call 'gdi32::CreateEllipticRgn(i 0,i 0,i r8,i r9)p .r5'
+    System::Call 'user32::SetWindowRgn(p r3,p r5,i 1)'
+    System::Call 'user32::SetWindowPos(p r3,p 0,i 0,i 0,i 0,i 0,i 0x13)'
+  ${EndIf}
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; Installation page: the standard page gets the background image, the real progress bar goes on the track.
+Function SkInstShow
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  Call SkChrome
+  FindWindow $0 "#32770" "" $HWNDPARENT
+  StrCpy $SkDlg $0
+  System::Call 'user32::MoveWindow(p r0,i 0,i 0,i $SkW,i $SkH,i 1)'
+  GetDlgItem $1 $0 1006
+  ShowWindow $1 0
+  GetDlgItem $1 $0 1016
+  ShowWindow $1 0
+  GetDlgItem $1 $0 1027
+  ShowWindow $1 0
+  System::Call 'user32::CreateWindowEx(i 0,t "STATIC",t "",i 0x5000000E,i 0,i 0,i $SkW,i $SkH,p r0,p 0,p 0,p 0)p .r2'
+  StrCpy $SkBg $2
+  Push $2
+  Push "$SkImg\p3-$SkPfx.bmp"
+  Call SkSetImg
+  System::Call 'user32::SetWindowPos(p r2,p 1,i 0,i 0,i 0,i 0,i 0x13)'
+  GetDlgItem $3 $0 1004
+  StrCpy $SkProg $3
+  System::Call 'uxtheme::SetWindowTheme(p r3,w "",w "")'
+  System::Call 'user32::GetWindowLong(p r3,i -16)i .r4'
+  IntOp $4 $4 | 1
+  System::Call 'user32::SetWindowLong(p r3,i -16,i r4)'
+  SendMessage $3 0x409 0 0x00F6823B
+  SendMessage $3 0x2001 0 0x0052251B
+  !insertmacro SK_PLACE $3 262 188 466 10
+  System::Call 'gdi32::CreateRoundRectRgn(i 0,i 0,i r8,i r9,i 10,i 10)p .r5'
+  System::Call 'user32::SetWindowRgn(p r3,p r5,i 1)'
+  System::Call 'user32::CreateWindowEx(i 0,t "STATIC",t "0%",i 0x50000002,i 0,i 0,i 10,i 10,p r0,p 0,p 0,p 0)p .r4'
+  StrCpy $SkPct $4
+  SendMessage $0 0x31 0 0 $5
+  SendMessage $4 0x30 $5 1
+  SetCtlColors $4 "A9B6DC" "0A112C"
+  !insertmacro SK_PLACE $4 262 206 466 20
+  StrCpy $SkInst 1
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
 ; Installer pages, must be ordered as they appear
 ; 1. Welcome Page
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkPageShow
-!insertmacro MUI_PAGE_WELCOME
+Page custom SkWelcomeShow
 
 ; 2. License Page (if defined)
 !if "${LICENSE}" != ""
@@ -373,36 +709,43 @@ Function PageReinstall
   ${If} $PassiveMode = 1
     Call PageLeaveReinstall
   ${Else}
+    Call SkChrome
     nsDialogs::Create 1018
     Pop $R4
     ${IfThen} $(^RTL) = 1 ${|} nsDialogs::SetRTL $(^RTL) ${|}
 
-    ${NSD_CreateLabel} 0 0 100% 24u $R1
-    Pop $R1
-
-    ${NSD_CreateRadioButton} 30u 50u -30u 8u $R2
+    ; hidden radio buttons keep the choice (PageLeaveReinstall reads $R2)
+    ${NSD_CreateRadioButton} 0 0 10u 8u $R2
     Pop $R2
-    ${NSD_OnClick} $R2 PageReinstallUpdateSelection
-
-    ${NSD_CreateRadioButton} 30u 70u -30u 8u $R3
+    ShowWindow $R2 0
+    ${NSD_CreateRadioButton} 0 0 10u 8u $R3
     Pop $R3
-    ; Disable this radio button if downgrading and downgrades are disabled
-    !if "${ALLOWDOWNGRADES}" == "false"
-      ${IfThen} $R0 = -1 ${|} EnableWindow $R3 0 ${|}
-    !endif
-    ${NSD_OnClick} $R3 PageReinstallUpdateSelection
-
-    ; Check the first radio button if this the first time
-    ; we enter this page or if the second button wasn't
-    ; selected the last time we were on this page
+    ShowWindow $R3 0
     ${If} $ReinstallPageCheck <> 2
       SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
     ${Else}
       SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
     ${EndIf}
 
-    Call DarkPageShow
-    ${NSD_SetFocus} $R2
+    ${If} $R0 = 0
+      StrCpy $SkVar "p4s"
+    ${Else}
+      StrCpy $SkVar "p4u"
+    ${EndIf}
+    !insertmacro SK_BTNX $SkC1 262 126 466 68 SkRadio1
+    !insertmacro SK_BTNX $SkC2 262 206 466 68 SkRadio2
+    !insertmacro SK_BTNX $0 524 411 100 39 SkCancel
+    Push $0
+    Push "$SkImg\c-p4s-b-cancel-$SkPfx.bmp"
+    Call SkSetCtlImg
+    !insertmacro SK_BTNX $0 636 411 92 39 SkNext
+    Push $0
+    Push "$SkImg\c-p4s-b-next-$SkPfx.bmp"
+    Call SkSetCtlImg
+    ${NSD_CreateBitmap} 0 0 100% 100% ""
+    Pop $SkBg
+    Call SkReinstallImg
+    !insertmacro SK_BOTTOM
     nsDialogs::Show
   ${EndIf}
 FunctionEnd
@@ -500,41 +843,194 @@ Function PageLeaveReinstall
   reinst_done:
 FunctionEnd
 
+; ===== skinned pages (defined after $ReinstallPageCheck) =====
+Function SkReinstallImg
+  ${If} $ReinstallPageCheck = 2
+    StrCpy $1 b
+  ${Else}
+    StrCpy $1 a
+  ${EndIf}
+  Push $SkBg
+  Push "$SkImg\$SkVar-$1-$SkPfx.bmp"
+  Call SkSetImg
+  Push $SkC1
+  Push "$SkImg\c-$SkVar-card1-$1-$SkPfx.bmp"
+  Call SkSetCtlImg
+  Push $SkC2
+  Push "$SkImg\c-$SkVar-card2-$1-$SkPfx.bmp"
+  Call SkSetCtlImg
+FunctionEnd
+Function SkRadio1
+  StrCpy $ReinstallPageCheck 1
+  SendMessage $R2 ${BM_SETCHECK} ${BST_CHECKED} 0
+  SendMessage $R3 ${BM_SETCHECK} ${BST_UNCHECKED} 0
+  Call SkReinstallImg
+FunctionEnd
+Function SkRadio2
+  !if "${ALLOWDOWNGRADES}" == "false"
+    ${If} $R0 = -1
+      Return
+    ${EndIf}
+  !endif
+  StrCpy $ReinstallPageCheck 2
+  SendMessage $R3 ${BM_SETCHECK} ${BST_CHECKED} 0
+  SendMessage $R2 ${BM_SETCHECK} ${BST_UNCHECKED} 0
+  Call SkReinstallImg
+FunctionEnd
+
+Function SkWelcomeShow
+  ${If} $PassiveMode = 1
+    Abort
+  ${EndIf}
+  Call SkChrome
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  !insertmacro SK_BTN $1 524 411 100 39 SkCancel c-p1-b-cancel
+  !insertmacro SK_BTN $1 636 411 92 39 SkNext c-p1-b-next
+  !insertmacro SK_BG p1
+  !insertmacro SK_BOTTOM
+  nsDialogs::Show
+FunctionEnd
+
+Function SkBrowse
+  ${NSD_GetText} $SkDir $1
+  nsDialogs::SelectFolderDialog "" "$1"
+  Pop $0
+  ${If} $0 != error
+    StrLen $2 "${PRODUCTNAME}"
+    StrCpy $3 $0 "" -$2
+    ${If} $3 != "${PRODUCTNAME}"
+      StrCpy $4 $0 1 -1
+      ${If} $4 == "\"
+        StrCpy $0 "$0${PRODUCTNAME}"
+      ${Else}
+        StrCpy $0 "$0\${PRODUCTNAME}"
+      ${EndIf}
+    ${EndIf}
+    ${NSD_SetText} $SkDir $0
+  ${EndIf}
+FunctionEnd
+
+Function SkDirShow
+  ${If} $PassiveMode = 1
+    Abort
+  ${EndIf}
+  Call SkChrome
+  ; space required (MB) and available (GB)
+  IntOp $2 ${ESTIMATEDSIZE} / 1024
+  ${If} $2 < 1
+    StrCpy $2 1
+  ${EndIf}
+  StrCpy $2 "$2 MB"
+  StrCpy $3 $INSTDIR 3
+  StrCpy $4 ""
+  System::Call 'kernel32::GetDiskFreeSpaceExW(w r3,*l .r5,*l,*l)i .r1'
+  ${If} $1 <> 0
+    System::Int64Op $5 / 1073741824
+    Pop $4
+    StrCpy $4 "$4 GB"
+  ${EndIf}
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  ; path field (borderless, same colours as the card)
+  ${NSD_CreateText} 0 0 10u 10u "$INSTDIR"
+  Pop $SkDir
+  System::Call 'user32::GetWindowLong(p $SkDir,i -20)i .r1'
+  IntOp $1 $1 ^ 0x200
+  System::Call 'user32::SetWindowLong(p $SkDir,i -20,i r1)'
+  System::Call 'user32::SetWindowPos(p $SkDir,p 0,i 0,i 0,i 0,i 0,i 0x27)'
+  SetCtlColors $SkDir "EAF0FF" "0F1740"
+  !insertmacro SK_PLACE $SkDir 262 184 346 44
+  IntOp $7 $7 + 12
+  IntOp $9 $9 - 24
+  IntOp $6 $6 + 14
+  IntOp $8 $8 - 28
+  System::Call 'user32::MoveWindow(p $SkDir,i r6,i r7,i r8,i r9,i 1)'
+  CreateFont $R9 "Segoe UI Semibold" 11 600
+  ${NSD_CreateLabel} 0 0 10u 10u "$2"
+  Pop $1
+  SetCtlColors $1 "EAF0FF" "0F1740"
+  SendMessage $1 0x30 $R9 1
+  !insertmacro SK_PLACE $1 279 279 193 30
+  ${NSD_CreateLabel} 0 0 10u 10u "$4"
+  Pop $1
+  SetCtlColors $1 "EAF0FF" "0F1740"
+  SendMessage $1 0x30 $R9 1
+  !insertmacro SK_PLACE $1 518 279 193 30
+  !insertmacro SK_BTN $1 618 184 110 44 SkBrowse c-p2-b-browse
+  !insertmacro SK_BTN $1 516 411 100 39 SkBack c-p2-b-back
+  !insertmacro SK_BTN $1 628 411 100 39 SkNext c-p2-b-install
+  !insertmacro SK_BG p2
+  !insertmacro SK_BOTTOM
+  nsDialogs::Show
+FunctionEnd
+Function SkDirLeave
+  ${NSD_GetText} $SkDir $0
+  ${If} $0 == ""
+    Abort
+  ${EndIf}
+  StrCpy $INSTDIR $0
+FunctionEnd
+
+Function SkToggleRun
+  ${If} $SkRun = 1
+    StrCpy $SkRun 0
+    StrCpy $1 b
+  ${Else}
+    StrCpy $SkRun 1
+    StrCpy $1 a
+  ${EndIf}
+  Push $SkBg
+  Push "$SkImg\p5-$1-$SkPfx.bmp"
+  Call SkSetImg
+  Push $SkCk
+  Push "$SkImg\c-p5-ck-$1-$SkPfx.bmp"
+  Call SkSetCtlImg
+FunctionEnd
+Function SkFinishShow
+  ${If} $PassiveMode = 1
+    Abort
+  ${EndIf}
+  Call SkChrome
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  StrCpy $SkRun 1
+  !insertmacro SK_BTN $SkCk 262 134 466 56 SkToggleRun c-p5-ck-a
+  !insertmacro SK_BTN $1 628 411 100 39 SkNext c-p5-b-fin
+  !insertmacro SK_BG p5-a
+  !insertmacro SK_BOTTOM
+  nsDialogs::Show
+FunctionEnd
+Function SkFinishLeave
+  ${If} $SkRun = 1
+    Call RunMainBinary
+  ${EndIf}
+FunctionEnd
+
 ; 5. Choose install directory page
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkPageShow
-!insertmacro MUI_PAGE_DIRECTORY
+Page custom SkDirShow SkDirLeave
 
 ; 6. Start menu shortcut page
 Var AppStartMenuFolder
-!if "${STARTMENUFOLDER}" != ""
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-  !define MUI_STARTMENUPAGE_DEFAULTFOLDER "${STARTMENUFOLDER}"
-!else
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
-!endif
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkPageShow
+!define MUI_PAGE_CUSTOMFUNCTION_PRE Skip
 !insertmacro MUI_PAGE_STARTMENU Application $AppStartMenuFolder
 
 ; 7. Installation page
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkPageShow
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW SkInstShow
 !insertmacro MUI_PAGE_INSTFILES
 
 ; 8. Finish page
 ;
-; Don't auto jump to finish page after installation page,
-; because the installation page has useful info that can be used debug any issues with the installer.
-!define MUI_FINISHPAGE_NOAUTOCLOSE
-; Use show readme button in the finish page as a button create a desktop shortcut
-!define MUI_FINISHPAGE_SHOWREADME
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateOrUpdateDesktopShortcut
-; Show run app after installation.
-!define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW DarkPageShow
-!insertmacro MUI_PAGE_FINISH
+Page custom SkFinishShow SkFinishLeave
 
 Function RunMainBinary
   nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
@@ -545,46 +1041,243 @@ FunctionEnd
 Var DeleteAppDataCheckbox
 Var DeleteAppDataCheckboxState
 !define /ifndef WS_EX_LAYOUTRTL         0x00400000
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.ConfirmShow
-Function un.ConfirmShow ; Add add a `Delete app data` check box
-  ; $1 inner dialog HWND
-  ; $2 window DPI
-  ; $3 style
-  ; $4 x
-  ; $5 y
-  ; $6 width
-  ; $7 height
-  FindWindow $1 "#32770" "" $HWNDPARENT ; Find inner dialog
-  System::Call "user32::GetDpiForWindow(p r1) i .r2"
-  ${If} $(^RTL) = 1
-    StrCpy $3 "${__NSD_CheckBox_EXSTYLE} | ${WS_EX_LAYOUTRTL}"
-    IntOp $4 50 * $2
-  ${Else}
-    StrCpy $3 "${__NSD_CheckBox_EXSTYLE}"
-    IntOp $4 0 * $2
+; ===== skinned uninstaller =====
+!macro UNSK_BTNX VAR X Y W H FUNC
+  nsDialogs::CreateControl STATIC 0x5400010E 0 0 0 10u 10u ""
+  Pop ${VAR}
+  !insertmacro SK_PLACE ${VAR} ${X} ${Y} ${W} ${H}
+  ${NSD_OnClick} ${VAR} ${FUNC}
+!macroend
+Function un.SkSetImg
+  Exch $1
+  Exch
+  Exch $0
+  Push $2
+  Push $3
+  System::Call 'user32::LoadImage(p 0,t r1,i 0,i $SkW,i $SkH,i 0x10)p .r2'
+  SendMessage $0 0x172 0 $2 $3
+  ${If} $3 <> 0
+    System::Call 'gdi32::DeleteObject(p r3)'
   ${EndIf}
-  IntOp $5 100 * $2
-  IntOp $6 400 * $2
-  IntOp $7 25 * $2
-  IntOp $4 $4 / 96
-  IntOp $5 $5 / 96
-  IntOp $6 $6 / 96
-  IntOp $7 $7 / 96
-  System::Call 'user32::CreateWindowEx(i r3, w "${__NSD_CheckBox_CLASS}", w "$(deleteAppData)", i ${__NSD_CheckBox_STYLE}, i r4, i r5, i r6, i r7, p r1, i0, i0, i0) i .s'
-  Pop $DeleteAppDataCheckbox
-  SendMessage $HWNDPARENT ${WM_GETFONT} 0 0 $1
-  SendMessage $DeleteAppDataCheckbox ${WM_SETFONT} $1 1
-  Call un.DarkPageShow
+  Pop $3
+  Pop $2
+  Pop $0
+  Pop $1
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE un.ConfirmLeave
-Function un.ConfirmLeave
-  SendMessage $DeleteAppDataCheckbox ${BM_GETCHECK} 0 0 $DeleteAppDataCheckboxState
+
+; Stack: control hwnd, bitmap file. Shows the bitmap scaled to the control's own size.
+Function un.SkSetCtlImg
+  Exch $1
+  Exch
+  Exch $0
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  System::Alloc 16
+  Pop $5
+  System::Call 'user32::GetClientRect(p r0,p r5)'
+  System::Call '*$5(i,i,i.r3,i.r4)'
+  System::Free $5
+  System::Call 'user32::LoadImage(p 0,t r1,i 0,i r3,i r4,i 0x10)p .r2'
+  SendMessage $0 0x172 0 $2 $3
+  ${If} $3 <> 0
+    System::Call 'gdi32::DeleteObject(p r3)'
+  ${EndIf}
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $0
+  Pop $1
 FunctionEnd
-!define MUI_PAGE_CUSTOMFUNCTION_PRE un.SkipIfPassive
-!insertmacro MUI_UNPAGE_CONFIRM
+
+; Sizes the window once, hides the standard buttons and header on every page.
+Function un.SkChrome
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  ${If} $SkReady <> 1
+    StrCpy $SkReady 1
+    StrCpy $SkPfx "en"
+    StrCpy $SkImg "$INSTDIR\skin"
+    StrCpy $0 96
+    System::Call 'user32::GetDpiForWindow(p $HWNDPARENT)i .r0'
+    ${If} $0 < 96
+      StrCpy $0 96
+    ${EndIf}
+    IntOp $SkW ${SK_W} * $0
+    IntOp $SkW $SkW / 96
+    IntOp $SkH ${SK_H} * $0
+    IntOp $SkH $SkH / 96
+    System::Alloc 16
+    Pop $1
+    System::Call 'user32::GetWindowRect(p $HWNDPARENT,p r1)'
+    System::Call '*$1(i.r2,i.r3,i.r4,i.r5)'
+    IntOp $6 $4 - $2
+    IntOp $7 $5 - $3
+    System::Call 'user32::GetClientRect(p $HWNDPARENT,p r1)'
+    System::Call '*$1(i,i,i.r4,i.r5)'
+    IntOp $6 $6 - $4
+    IntOp $7 $7 - $5
+    IntOp $6 $6 + $SkW
+    IntOp $7 $7 + $SkH
+    System::Free $1
+    System::Call 'user32::GetSystemMetrics(i 0)i .r2'
+    System::Call 'user32::GetSystemMetrics(i 1)i .r3'
+    IntOp $2 $2 - $6
+    IntOp $2 $2 / 2
+    IntOp $3 $3 - $7
+    IntOp $3 $3 / 2
+    System::Call 'user32::SetWindowPos(p $HWNDPARENT,p 0,i r2,i r3,i r6,i r7,i 0x0004)'
+    GetDlgItem $1 $HWNDPARENT 1018
+    System::Call 'user32::MoveWindow(p r1,i 0,i 0,i $SkW,i $SkH,i 1)'
+    FindWindow $2 "#32770" "" $HWNDPARENT
+    ${If} $2 <> 0
+      System::Call 'user32::MoveWindow(p r2,i 0,i 0,i $SkW,i $SkH,i 1)'
+    ${EndIf}
+  ${EndIf}
+  ; hide every outer control except the page area (NSIS shows them again on each page)
+  StrCpy $1 0
+  sk_hide_loop:
+    FindWindow $1 "" "" $HWNDPARENT $1
+    IntCmp $1 0 sk_hide_done
+    System::Call 'user32::GetClassName(p r1,t .r2,i 40)'
+    StrCmp $2 "#32770" sk_hide_loop
+    System::Call 'user32::GetDlgCtrlID(p r1)i .r3'
+    StrCmp $3 1018 sk_hide_loop
+    ShowWindow $1 0
+    Goto sk_hide_loop
+  sk_hide_done:
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+Function un.SkNext
+  SendMessage $HWNDPARENT 0x408 1 0
+FunctionEnd
+Function un.SkBack
+  SendMessage $HWNDPARENT 0x408 -1 0
+FunctionEnd
+Function un.SkCancel
+  SendMessage $HWNDPARENT 0x10 0 0
+FunctionEnd
+
+Function un.SkToggleData
+  ${If} $DeleteAppDataCheckboxState = 1
+    StrCpy $DeleteAppDataCheckboxState 0
+    StrCpy $1 a
+  ${Else}
+    StrCpy $DeleteAppDataCheckboxState 1
+    StrCpy $1 b
+  ${EndIf}
+  Push $SkBg
+  Push "$SkImg\u1-$1-$SkPfx.bmp"
+  Call un.SkSetImg
+  Push $SkCk
+  Push "$SkImg\c-u1-ck-$1-$SkPfx.bmp"
+  Call un.SkSetCtlImg
+FunctionEnd
+
+Function un.SkConfirmShow
+  ${If} $PassiveMode = 1
+    Abort
+  ${EndIf}
+  Call un.SkChrome
+  nsDialogs::Create 1018
+  Pop $0
+  ${If} $0 == error
+    Abort
+  ${EndIf}
+  StrCpy $DeleteAppDataCheckboxState 0
+  ${NSD_CreateLabel} 0 0 10u 10u "$INSTDIR"
+  Pop $1
+  SetCtlColors $1 "EAF0FF" "0F1740"
+  !insertmacro SK_PLACE $1 279 167 432 30
+  !insertmacro UNSK_BTNX $SkCk 262 224 466 56 un.SkToggleData
+  Push $SkCk
+  Push "$SkImg\c-u1-ck-a-$SkPfx.bmp"
+  Call un.SkSetCtlImg
+  !insertmacro UNSK_BTNX $1 496 411 100 39 un.SkCancel
+  Push $1
+  Push "$SkImg\c-u1-b-cancel-$SkPfx.bmp"
+  Call un.SkSetCtlImg
+  !insertmacro UNSK_BTNX $1 608 411 120 39 un.SkNext
+  Push $1
+  Push "$SkImg\c-u1-b-uninst-$SkPfx.bmp"
+  Call un.SkSetCtlImg
+  ${NSD_CreateBitmap} 0 0 100% 100% ""
+  Pop $SkBg
+  Push $SkBg
+  Push "$SkImg\u1-a-$SkPfx.bmp"
+  Call un.SkSetImg
+  System::Call 'user32::SetWindowPos(p $SkBg,p 1,i 0,i 0,i 0,i 0,i 0x13)'
+  nsDialogs::Show
+FunctionEnd
+
+Function un.SkInstShow
+  Push $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+  Push $5
+  Push $6
+  Push $7
+  Push $8
+  Push $9
+  Call un.SkChrome
+  FindWindow $0 "#32770" "" $HWNDPARENT
+  System::Call 'user32::MoveWindow(p r0,i 0,i 0,i $SkW,i $SkH,i 1)'
+  GetDlgItem $1 $0 1006
+  ShowWindow $1 0
+  GetDlgItem $1 $0 1016
+  ShowWindow $1 0
+  GetDlgItem $1 $0 1027
+  ShowWindow $1 0
+  System::Call 'user32::CreateWindowEx(i 0,t "STATIC",t "",i 0x5000000E,i 0,i 0,i $SkW,i $SkH,p r0,p 0,p 0,p 0)p .r2'
+  Push $2
+  Push "$SkImg\u2-$SkPfx.bmp"
+  Call un.SkSetImg
+  System::Call 'user32::SetWindowPos(p r2,p 1,i 0,i 0,i 0,i 0,i 0x13)'
+  GetDlgItem $3 $0 1004
+  System::Call 'uxtheme::SetWindowTheme(p r3,w "",w "")'
+  System::Call 'user32::GetWindowLong(p r3,i -16)i .r4'
+  IntOp $4 $4 | 1
+  System::Call 'user32::SetWindowLong(p r3,i -16,i r4)'
+  SendMessage $3 0x409 0 0x00F6823B
+  SendMessage $3 0x2001 0 0x0052251B
+  !insertmacro SK_PLACE $3 262 136 466 10
+  System::Call 'gdi32::CreateRoundRectRgn(i 0,i 0,i r8,i r9,i 10,i 10)p .r5'
+  System::Call 'user32::SetWindowRgn(p r3,p r5,i 1)'
+  Pop $9
+  Pop $8
+  Pop $7
+  Pop $6
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Pop $0
+FunctionEnd
+
+UninstPage custom un.SkConfirmShow
+
 
 ; 2. Uninstalling Page
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.DarkPageShow
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW un.SkInstShow
 !insertmacro MUI_UNPAGE_INSTFILES
 
 ;Languages
@@ -777,6 +1470,8 @@ Section WebView2
 SectionEnd
 
 Section Install
+  Push 1
+  Call SkStep
   SetOutPath $INSTDIR
 
   !ifmacrodef NSIS_HOOK_PREINSTALL
@@ -815,6 +1510,20 @@ Section Install
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\DefaultIcon" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\",0"
     WriteRegStr SHCTX "Software\Classes\\{{protocol}}\shell\open\command" "" "$\"$INSTDIR\${MAINBINARYNAME}.exe$\" $\"%1$\""
   {{/each}}
+
+  Push 2
+  Call SkStep
+
+  SetOutPath "$INSTDIR\skin"
+  File "${SK_DIR}u1-a-en.bmp"
+  File "${SK_DIR}u1-b-en.bmp"
+  File "${SK_DIR}u2-en.bmp"
+  File "${SK_DIR}c-u1-ck-a-en.bmp"
+  File "${SK_DIR}c-u1-ck-b-en.bmp"
+  File "${SK_DIR}c-u1-b-cancel-en.bmp"
+  File "${SK_DIR}c-u1-b-uninst-en.bmp"
+  File "${SK_DIR}chk.bmp"
+  SetOutPath $INSTDIR
 
   ; Create uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -875,10 +1584,11 @@ Section Install
     !insertmacro NSIS_HOOK_POSTINSTALL
   !endif
 
-  ; Auto close this page for passive mode
-  ${If} $PassiveMode = 1
-    SetAutoClose true
-  ${EndIf}
+  Push 3
+  Call SkStep
+
+  ; Move on to the finish page by itself (and close at once in passive mode)
+  SetAutoClose true
 SectionEnd
 
 Function .onInstSuccess
@@ -915,6 +1625,8 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
+  SetAutoClose true
+  RMDir /r "$INSTDIR\skin"
 
   !ifmacrodef NSIS_HOOK_PREUNINSTALL
     !insertmacro NSIS_HOOK_PREUNINSTALL
