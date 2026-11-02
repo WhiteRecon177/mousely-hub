@@ -1,16 +1,16 @@
 import { useSyncExternalStore } from "react";
 
-export type ThemeId = "ocean" | "crimson" | "mono";
+export type ThemeId = "indigo" | "sunset" | "crimson";
 
 /** Names are the same in every language (they are the names of the looks). */
 export const THEMES: { id: ThemeId; name: string }[] = [
-  { id: "ocean", name: "Ocean Glass" },
+  { id: "indigo", name: "Indigo" },
+  { id: "sunset", name: "Sunset" },
   { id: "crimson", name: "Crimson" },
-  { id: "mono", name: "Monochrome" },
 ];
 
 const STORAGE_KEY = "devicedeck.theme";
-const DEFAULT_THEME: ThemeId = "mono";
+const DEFAULT_THEME: ThemeId = "indigo";
 
 function isTheme(value: unknown): value is ThemeId {
   return THEMES.some((theme) => theme.id === value);
