@@ -129,6 +129,10 @@ Built with [Tauri 2](https://tauri.app) (Rust) + React + Vite + TypeScript. How 
 
 Bug reports, mouse data, translations and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Credits
+
+Interface design contributions by [Luk3KJ](https://github.com/Luk3KJ) ![AURA KING](https://img.shields.io/badge/AURA%20KING-FFD700?style=for-the-badge&labelColor=FFD700&color=FFD700)
+
 ## Trademarks and independence
 
 Mousely Hub is an independent open-source project. It is **not affiliated with, endorsed by or sponsored by** Logitech, Razer, Corsair, SteelSeries, Microsoft, Glorious, HyperX, Pulsar, Lamzu, Attack Shark or any other brand. All product names, logos and brands are property of their owners and are used only to say which devices are compatible. The interface and logo are original work.
