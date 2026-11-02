@@ -1,12 +1,12 @@
 ; ===== Mousely Hub dark installer: inserted into Tauri's NSIS template by make-dark-installer.ps1 =====
 !include LogicLib.nsh
 
-!define DK_TEXT "ECECF0"
-!define DK_BG "0F0F12"
-!define DK_BG2 "1B1B20"
+!define DK_TEXT "EAF0FF"
+!define DK_BG "070B1C"
+!define DK_BG2 "131C45"
 ; DWM wants COLORREF = 0x00BBGGRR
-!define DK_BGREF 0x00120F0F
-!define DK_TXTREF 0x00F0ECEC
+!define DK_BGREF 0x001C0B07
+!define DK_TXTREF 0x00FFF0EA
 
 !define MUI_CUSTOMFUNCTION_GUIINIT DarkGuiInit
 !define MUI_CUSTOMFUNCTION_UNGUIINIT un.DarkGuiInit
@@ -35,8 +35,8 @@ Function ${UN}DarkPaint
     Goto dk_loop
   dk_prog:
     System::Call 'uxtheme::SetWindowTheme(p r1, w "", w "")'
-    SendMessage $1 0x409 0 0x00F0ECEC
-    SendMessage $1 0x2001 0 0x00302A2A
+    SendMessage $1 0x409 0 0x00F6823B
+    SendMessage $1 0x2001 0 0x0052251B
     Goto dk_loop
   dk_edit:
     SetCtlColors $1 "${DK_TEXT}" "${DK_BG2}"
