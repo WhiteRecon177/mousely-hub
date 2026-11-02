@@ -131,7 +131,9 @@ Bug reports, mouse data, translations and pull requests are welcome: see [CONTRI
 
 ## Credits
 
-Interface design contributions by [Luk3KJ](https://github.com/Luk3KJ) ![AURA KING](https://img.shields.io/badge/AURA%20KING-FFD700?style=for-the-badge&labelColor=FFD700&color=FFD700)
+<p align="center">
+  <a href="https://github.com/Luk3KJ"><img src="docs/credits.svg" alt="Interface design by Luk3KJ (AURA KING)" width="720"></a>
+</p>
 
 ## Trademarks and independence
 
