@@ -31,7 +31,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/mouse-indigo.png" alt="Mousely Hub, Mouse tab" width="720">
+  <img src="docs/screenshots/mouse.png" alt="Mousely Hub, Mouse tab" width="720">
 </p>
 
 ## Why Mousely Hub
@@ -46,12 +46,8 @@
 ## Screenshots
 
 <p align="center">
-  <img src="docs/screenshots/macro-indigo.png" alt="Macro tab" width="360">
-  <img src="docs/screenshots/webcam-indigo.png" alt="Webcam tab" width="360">
-</p>
-<p align="center">
-  <img src="docs/screenshots/mouse-sunset.png" alt="Sunset theme" width="360">
-  <img src="docs/screenshots/mouse-crimson.png" alt="Crimson theme" width="360">
+  <img src="docs/screenshots/macro.png" alt="Macro tab" width="360">
+  <img src="docs/screenshots/webcam.png" alt="Webcam tab" width="360">
 </p>
 
 ## Download
