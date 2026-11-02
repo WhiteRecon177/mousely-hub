@@ -50,6 +50,8 @@
   <img src="docs/screenshots/webcam.png" alt="Webcam tab" width="360">
 </p>
 
+**Themes.** You can change the look in **Settings** (the sliders button, top right): **Indigo** (default, shown above), **Sunset** and **Crimson**. The choice is remembered.
+
 ## Download
 
 All files are on the [releases page](https://github.com/WhiteRecon177/mousely-hub/releases/latest).
