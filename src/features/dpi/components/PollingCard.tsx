@@ -14,25 +14,30 @@ export function PollingCard({ info, disabled, onChange }: PollingCardProps) {
   const unknown = info.pollingSupported.length === 0;
   const options = unknown ? info.pollingOptions : info.pollingSupported;
   const maxSupported = unknown ? 0 : Math.max(...info.pollingSupported);
+  const ms = (hz: number): string => `${Math.round((1000 / hz) * 10) / 10} MS`;
 
   return (
-    <div className="dd-dpi-card">
-      <div className="dd-dpi-title">{t("polling.title")}</div>
-      <div className="dd-dpi-btn-row dd-dpi-btn-row--tight">
+    <div className="dd-dpi-card dd-poll">
+      <div className="dd-card-head">
+        <span className="dd-card-title">{t("polling.title")}</span>
+        <span className="dd-micro">{unknown ? t("polling.notReported") : t("polling.maxNow", { hz: maxSupported })}</span>
+      </div>
+      <div className="dd-poll-grid" style={{ gridTemplateColumns: `repeat(${Math.max(1, options.length)}, minmax(0, 1fr))` }}>
         {options.map((hz) => (
           <button
             key={hz}
             type="button"
-            className={hz === info.pollingRate ? "dd-dpi-seg dd-dpi-seg--active" : "dd-dpi-seg"}
+            className={hz === info.pollingRate ? "dd-poll-tile dd-poll-tile--active" : "dd-poll-tile"}
             disabled={disabled}
             onClick={() => onChange(hz)}
           >
-            {hz} Hz
+            <span className="dd-poll-hz">
+              {hz}
+              <small>Hz</small>
+            </span>
+            <span className="dd-micro dd-poll-ms">{ms(hz)}</span>
           </button>
         ))}
-      </div>
-      <div className="dd-dpi-range">
-        <span>{unknown ? t("polling.notReported") : t("polling.maxNow", { hz: maxSupported })}</span>
       </div>
     </div>
   );

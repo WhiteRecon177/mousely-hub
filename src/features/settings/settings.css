@@ -1,7 +1,6 @@
 .dd-settings {
   position: relative;
-  z-index: 2;
-  margin-left: auto;
+  z-index: 30;
 }
 
 .dd-gear {
@@ -25,7 +24,7 @@
 
 .dd-set-panel {
   position: absolute;
-  top: 44px;
+  top: 50px;
   right: 0;
   z-index: 50;
   width: 264px;

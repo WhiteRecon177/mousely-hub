@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import "./app/shell.css";
-import { Brand, Wires } from "./app/Brand";
-import { TitleBar } from "./app/TitleBar";
+import { TopBar } from "./app/TitleBar";
 import { MousePage as MacrosPage, useRemapRuntime } from "./features/mouse";
 import { DpiPage } from "./features/dpi";
 import { WebcamPage } from "./features/webcam";
@@ -36,27 +35,13 @@ function App() {
 
   return (
     <div className="dd-app">
-      <TitleBar />
-      <div className="dd-shell-bar">
-        <Brand />
-        <div className="dd-mid">
-          <Wires side="left" />
-          <Wires side="right" />
-          <div className="dd-tabs">
-            {TABS.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={tab === item.id ? "dd-tab dd-tab--active" : "dd-tab"}
-                onClick={() => select(item.id)}
-              >
-                {t(item.label)}
-              </button>
-            ))}
-          </div>
-        </div>
+      <TopBar
+        tabs={TABS.map((item) => ({ id: item.id, label: t(item.label) }))}
+        active={tab}
+        onSelect={(id) => select(id as TabId)}
+      >
         <SettingsButton />
-      </div>
+      </TopBar>
 
       {opened.includes("mouse") && (
         <div hidden={tab !== "mouse"}>

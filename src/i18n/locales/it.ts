@@ -164,4 +164,10 @@ export const it: Record<Key, string> = {
   "cam.err.noCamera": "Nessuna webcam trovata.",
   "cam.err.permission": "Permesso negato o nessuna webcam trovata.",
   "cam.err.access": "Impossibile accedere alla webcam.",
+  "dev.state": "Stato",
+  "dev.connection": "Connessione",
+  "dev.battery": "Batteria",
+  "dev.model": "Modello",
+  "dev.detectedShort": "Rilevato",
+  "dev.footer": "Open source · MIT · Nessuna telemetria",
 };

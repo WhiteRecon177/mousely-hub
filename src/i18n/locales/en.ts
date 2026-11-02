@@ -163,6 +163,12 @@ export const en = {
   "cam.err.noCamera": "No camera found.",
   "cam.err.permission": "Permission denied or no camera found.",
   "cam.err.access": "Failed to access camera.",
+  "dev.state": "Status",
+  "dev.connection": "Connection",
+  "dev.battery": "Battery",
+  "dev.model": "Model",
+  "dev.detectedShort": "Detected",
+  "dev.footer": "Open source · MIT · No telemetry",
 } as const;
 
 export type Key = keyof typeof en;

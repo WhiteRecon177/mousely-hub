@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import "../mouse/mouse.css";
 import "./dpi.css";
 import { useDpi } from "./hooks/useDpi";
-import { DeviceCard } from "./components/DeviceCard";
+import { DeviceCard, CONNECTION_KEYS } from "./components/DeviceCard";
 import { DpiCard } from "./components/DpiCard";
 import { PollingCard } from "./components/PollingCard";
 import { DPI_WRITE_ENABLED, POLLING_WRITE_ENABLED } from "./services/dpiApi";
@@ -55,7 +55,17 @@ export function DpiPage() {
 
   return (
     <div className="dd-dpi-page">
-      <div className="dd-dpi-left">
+      <section className="dd-dev-panel">
+        <span className="dd-screw dd-screw--tl" />
+        <span className="dd-screw dd-screw--tr" />
+        <span className="dd-screw dd-screw--bl" />
+        <span className="dd-screw dd-screw--br" />
+
+        <div className="dd-dev-head">
+          <span className="dd-micro">{t("common.device")} · 01</span>
+          <span className="dd-micro dd-micro--accent">{ready ? info.brand : ""}</span>
+        </div>
+
         <div className="dd-dpi-mouse">
           <MouseDiagram
             selected={null}
@@ -65,7 +75,17 @@ export function DpiPage() {
             onSelect={noop}
           />
         </div>
-      </div>
+
+        <div className="dd-dev-foot">
+          <div className="dd-micro">{t("dev.model")}</div>
+          <div className="dd-dev-name">{ready ? info.name : t("device.none")}</div>
+          {ready && (
+            <div className="dd-micro">
+              {info.brand} · {t(CONNECTION_KEYS[info.connection])}
+            </div>
+          )}
+        </div>
+      </section>
 
       <div className="dd-dpi-right">
         <DeviceCard info={info} />
@@ -116,7 +136,7 @@ export function DpiPage() {
             className={
               dpi.error
                 ? "dd-dpi-status dd-dpi-status--error"
-                : "dd-dpi-status"
+                : "dd-dpi-status dd-micro"
             }
           >
             {dpi.status}
