@@ -267,3 +267,59 @@ option {
 .dd-top .dd-tab:hover { background: var(--card-2); color: var(--text); }
 .dd-top .dd-tab--active,
 .dd-top .dd-tab--active:hover { background: var(--grad); color: var(--on-accent); }
+
+/* Mousely Hub — Ice theme (light, cool blue). */
+
+/* ---------- ICE — light, cool blue (sky, clouds) ---------- */
+:root[data-theme="ice"] {
+  --bg: #eef6fa;
+  --bg-deep: #e2eff5;
+  --bg-image: radial-gradient(900px 480px at 85% -10%, rgba(60, 180, 230, 0.2), transparent 62%), radial-gradient(700px 420px at 0% 110%, rgba(120, 210, 230, 0.2), transparent 60%);
+  --bar-bg: transparent;
+  --panel: #eef6fa;
+  --card: rgba(255, 255, 255, 0.8);
+  --card-2: #e6f4fa;
+  --hover: #ddf0f8;
+  --field: #f0f8fb;
+  --border: rgba(20, 120, 170, 0.16);
+  --btn-border: rgba(20, 120, 170, 0.24);
+  --off-track: rgba(10, 40, 60, 0.14);
+  --off: #9fb0b8;
+  --text: #0c2633;
+  --muted: #4b6877;
+  --accent: #0f8fc4;
+  --accent-soft: #45b3e0;
+  --grad: linear-gradient(135deg, #0f8fc4, #22b8c9);
+  --on-accent: #fff;
+  --accent-glow: 0 6px 18px rgba(15, 143, 196, 0.3);
+  --switch-on: #0f8fc4;
+  --danger: #c93848;
+  --rec: #dc3a3a;
+  --warn: #9a6a12;
+  --good: #158a5a;
+  --holo: #1590c8;
+  --holo-2: #45b3e0;
+  --holo-3: #0a5f88;
+  --batt: #45b3e0;
+  --batt-fill: #1590c8;
+  --radius: 16px;
+  --card-shadow: 0 10px 30px rgba(10, 70, 110, 0.08), inset 0 1px 0 #ffffff;
+}
+
+/* ---------- fixes for the light theme ----------
+ * Some parts of the app have fixed colours made for a dark background:
+ * they are adjusted here only when Ice is active. */
+:root[data-theme="ice"] {
+  color-scheme: light;
+}
+[data-theme="ice"] .dd-brand { color: var(--text); }          /* shell.css hard-codes the name colour */
+[data-theme="ice"] .dd-titlebar { background: var(--bg-deep); } /* shell.css has a gradient to black */
+[data-theme="ice"] .dd-mouse,
+[data-theme="ice"] .dd-cam-holo {
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--holo) 22%, transparent));
+}
+[data-theme="ice"] .dd-top { background: color-mix(in srgb, var(--bg) 82%, transparent); }
+[data-theme="ice"] .dd-toggle-knob { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); }
+[data-theme="ice"] .dd-screw {
+  box-shadow: 0 0 0 2px rgba(20, 20, 40, 0.1), 0 1px 2px rgba(20, 20, 40, 0.25); /* dpi.css has a dark ring */
+}

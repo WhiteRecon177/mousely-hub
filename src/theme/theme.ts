@@ -1,12 +1,13 @@
 import { useSyncExternalStore } from "react";
 
-export type ThemeId = "indigo" | "sunset" | "crimson";
+export type ThemeId = "indigo" | "sunset" | "crimson" | "ice";
 
 /** Names are the same in every language (they are the names of the looks). */
 export const THEMES: { id: ThemeId; name: string }[] = [
   { id: "indigo", name: "Indigo" },
   { id: "sunset", name: "Sunset" },
   { id: "crimson", name: "Crimson" },
+  { id: "ice", name: "Ice" },
 ];
 
 const STORAGE_KEY = "devicedeck.theme";
