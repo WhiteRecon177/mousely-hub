@@ -41,7 +41,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
-            libudev-dev libxdo-dev libx11-dev libxtst-dev libxi-dev
+            libudev-dev libxdo-dev libx11-dev libxtst-dev libxi-dev zsync
 
       - uses: actions/setup-node@v4
         with:
@@ -60,6 +60,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # AppImage update information (lets AppImageUpdate and similar tools update it)
+          LDAI_UPDATE_INFORMATION: gh-releases-zsync|WhiteRecon177|mousely-hub|latest|Mousely.Hub_*_amd64.AppImage.zsync
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Mousely Hub ${{ github.ref_name }}"
@@ -67,3 +69,11 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
+
+      - name: Upload AppImage .zsync (Linux)
+        if: matrix.os == 'ubuntu-22.04'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          f=$(ls src-tauri/target/release/bundle/appimage/*.zsync 2>/dev/null | head -n1 || true)
+          if [ -n "$f" ]; then gh release upload "${{ github.ref_name }}" "$f" --clobber; else echo "no .zsync produced"; fi
