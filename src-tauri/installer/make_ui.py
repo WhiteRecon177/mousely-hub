@@ -7,7 +7,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 for _p in (os.path.join(HERE,"logo.png"), os.path.join(HERE,"..","..","docs","logo.png")):
     if os.path.exists(_p):
         LOGO = "data:image/png;base64," + base64.b64encode(open(_p,"rb").read()).decode(); break
-VER = sys.argv[1] if len(sys.argv) > 1 else "0.1.1"
+VER = sys.argv[1] if len(sys.argv) > 1 else "0.1.2"
 OUT = sys.argv[2] if len(sys.argv) > 2 else "out"
 os.makedirs(OUT, exist_ok=True)
 
