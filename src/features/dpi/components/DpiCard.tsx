@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { MouseInfo } from "../types";
 import { useT } from "../../../i18n";
 
@@ -45,6 +46,38 @@ export function DpiCard({
   onRemoveStage,
 }: DpiCardProps) {
   const t = useT();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customText, setCustomText] = useState("");
+  const customRef = useRef<HTMLDivElement>(null);
+
+  // the small custom-DPI box closes with Esc or a click outside it
+  useEffect(() => {
+    if (!customOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (customRef.current && !customRef.current.contains(e.target as Node)) setCustomOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setCustomOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [customOpen]);
+
+  const customValue = Number(customText);
+  const customValid = customText.trim() !== "" && Number.isFinite(customValue) && customValue > 0;
+  const toggleCustom = (): void => {
+    setCustomText(String(dpi > 0 ? dpi : info.dpiMin));
+    setCustomOpen((open) => !open);
+  };
+  const applyCustom = (): void => {
+    if (!customValid) return;
+    onSelectStage(customValue); // the hook rounds it to the mouse step and range
+    setCustomOpen(false);
+  };
   const outOfRange = (stage: number): boolean => stage < info.dpiMin || stage > info.dpiMax;
   // The ring uses a log scale: the useful range (400-3200) would be a sliver of 100-44000 otherwise.
   const lo = Math.max(1, info.dpiMin);
@@ -58,8 +91,54 @@ export function DpiCard({
     <div className="dd-dpi-card dd-dpi-main">
       <div className="dd-card-head">
         <span className="dd-card-title">DPI</span>
-        <span className="dd-micro">
-          {fmt(info.dpiMin)} — {fmt(info.dpiMax)}
+        <span className="dd-card-head-right">
+          <span className="dd-micro">
+            {fmt(info.dpiMin)} — {fmt(info.dpiMax)}
+          </span>
+          <div className="dd-custom" ref={customRef}>
+            <button
+              type="button"
+              className={customOpen ? "dd-custom-btn dd-custom-btn--open" : "dd-custom-btn"}
+              disabled={disabled}
+              aria-expanded={customOpen}
+              onClick={toggleCustom}
+            >
+              {t("dpi.custom")}
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+                <path d="M2 3.5 5 6.5 8 3.5" />
+              </svg>
+            </button>
+            {customOpen && (
+              <div className="dd-custom-pop" role="dialog" aria-label={t("dpi.customTitle")}>
+                <div className="dd-custom-title">{t("dpi.customTitle")}</div>
+                <form
+                  className="dd-custom-row"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    applyCustom();
+                  }}
+                >
+                  <input
+                    className="dd-custom-input"
+                    type="number"
+                    inputMode="numeric"
+                    autoFocus
+                    min={info.dpiMin}
+                    max={info.dpiMax}
+                    step={info.dpiStep}
+                    value={customText}
+                    onChange={(e) => setCustomText(e.target.value)}
+                  />
+                  <button type="submit" className="dd-custom-apply" disabled={!customValid}>
+                    {t("dpi.apply")}
+                  </button>
+                </form>
+                <div className="dd-micro dd-custom-note">
+                  {t("dpi.customRange", { min: fmt(info.dpiMin), max: fmt(info.dpiMax), step: info.dpiStep })}
+                </div>
+              </div>
+            )}
+          </div>
         </span>
       </div>
 
