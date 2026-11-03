@@ -70,10 +70,13 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }} --config src-tauri/tauri.release.conf.json
 
-      - name: Upload AppImage .zsync (Linux)
+      - name: Create and upload AppImage .zsync (Linux)
         if: matrix.os == 'ubuntu-22.04'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          f=$(ls src-tauri/target/release/bundle/appimage/*.zsync 2>/dev/null | head -n1 || true)
-          if [ -n "$f" ]; then gh release upload "${{ github.ref_name }}" "$f" --clobber; else echo "no .zsync produced"; fi
+          cd src-tauri/target/release/bundle/appimage
+          img=$(ls *.AppImage | head -n1)
+          zsyncmake -u "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${img}" "${img}"
+          ls -l
+          gh release upload "${{ github.ref_name }}" "${img}.zsync" --clobber
