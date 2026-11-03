@@ -908,3 +908,29 @@
 .dd-dpi-slider--thin { flex: none; }
 .dd-dpi-footer .dd-dpi-ghost,
 .dd-dpi-diag-summary { white-space: nowrap; padding: clamp(6px, 1.4vh, 9px) 16px; }
+
+/* polling tiles: sizes follow the grid width, so many rates (up to 8000 Hz) always fit */
+.dd-poll-grid {
+  --gap: clamp(6px, 1.4cqw, 12px);
+  --tw: calc((100cqw - (var(--n, 4) - 1) * var(--gap)) / var(--n, 4));
+  container-type: inline-size;
+  display: grid;
+  gap: var(--gap);
+}
+.dd-poll-tile {
+  min-width: 0;
+  padding: clamp(8px, 1.6vh, 14px) clamp(8px, calc(var(--tw) * 0.08), 16px);
+  overflow: hidden;
+}
+.dd-poll-hz {
+  font-size: min(28px, calc(var(--tw) * 0.215));
+  white-space: nowrap;
+}
+.dd-poll-hz small {
+  margin-left: 0.12em;
+  font-size: 0.42em;
+}
+.dd-poll-ms {
+  font-size: min(10px, calc(var(--tw) * 0.15));
+  white-space: nowrap;
+}

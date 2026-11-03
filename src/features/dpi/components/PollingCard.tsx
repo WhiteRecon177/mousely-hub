@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { MouseInfo } from "../types";
 import { useT } from "../../../i18n";
 
@@ -22,7 +23,7 @@ export function PollingCard({ info, disabled, onChange }: PollingCardProps) {
         <span className="dd-card-title">{t("polling.title")}</span>
         <span className="dd-micro">{unknown ? t("polling.notReported") : t("polling.maxNow", { hz: maxSupported })}</span>
       </div>
-      <div className="dd-poll-grid" style={{ gridTemplateColumns: `repeat(${Math.max(1, options.length)}, minmax(0, 1fr))` }}>
+      <div className="dd-poll-grid" style={{ "--n": Math.max(1, options.length), gridTemplateColumns: `repeat(${Math.max(1, options.length)}, minmax(0, 1fr))` } as CSSProperties}>
         {options.map((hz) => (
           <button
             key={hz}
