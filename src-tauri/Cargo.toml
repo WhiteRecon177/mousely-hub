@@ -1,6 +1,6 @@
 [package]
 name = "devicedeck"
-version = "0.1.2"
+version = "0.1.3"
 description = "Control your PC peripherals without the heavy vendor software"
 authors = ["Mousely Hub contributors"]
 license = "MIT"

@@ -60,6 +60,8 @@ const CMD_POLLING: u8 = 0x2B;
 const DPI_MIN: u32 = 100;
 const DPI_MAX: u32 = 18000;
 const DPI_STEP: u32 = 100;
+/// Shown before the user picks a DPI (the mouse cannot tell its real value).
+const START_DPI: u32 = 800;
 const POLLING_HZ: [u32; 4] = [125, 250, 500, 1000];
 
 /// Sensor code of every DPI value from 100 to 18000 in steps of 100 (180 values).
@@ -286,6 +288,17 @@ fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> Mous
         info.polling_options = POLLING_HZ.to_vec();
         info.capabilities.dpi_write = true;
         info.capabilities.polling_write = true;
+        // The mouse cannot be asked for its DPI or polling rate, so without this the screen
+        // said "DPI not available" until something had been written. The controls are shown
+        // from the start; DPI begins at a usual value (the real one is unknown until the user
+        // picks one) and no polling tile is marked until the user chooses.
+        info.capabilities.dpi_read = true;
+        info.capabilities.polling_read = true;
+        if info.dpi == 0 {
+            info.dpi = START_DPI;
+        }
+        // the levels are the ones the user keeps in the app, not a single read-only one
+        info.dpi_levels = Vec::new();
     }
 
     info
@@ -476,5 +489,18 @@ mod tests {
                 assert!(matches!(byte & !RECEIVER_FLAG, 0x2D | 0x2B | 0x92));
             }
         }
+    }
+
+    #[test]
+    fn dpi_and_polling_controls_are_shown_from_the_start() {
+        // Aerox 3 Wireless: the mouse cannot report DPI, but the screen must still offer it.
+        let model = model_for(0x183A).expect("Aerox 3 Wireless is known");
+        let info = describe(model, None, false);
+        assert!(info.capabilities.dpi_read && info.capabilities.dpi_write);
+        assert!(info.capabilities.polling_read && info.capabilities.polling_write);
+        assert_eq!(info.dpi, START_DPI);
+        assert_eq!((info.dpi_min, info.dpi_max, info.dpi_step), (100, 18000, 100));
+        assert!(info.dpi_levels.is_empty());
+        assert_eq!(info.polling_supported, vec![125, 250, 500, 1000]);
     }
 }
