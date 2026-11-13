@@ -12,8 +12,8 @@
 //!
 //! * battery (wireless models only): `92`; answer: bit 7 of the 2nd byte = charging, bits 0..6 = step 1..21
 //!   (percent = (step - 1) * 5). A step outside 1..21 means "mouse not connected".
-//! * DPI: `2D, count, selected, code...` (`2D 01 00 code` for TrueMove Air wireless models,
-//!   `2D 01 01 code` with 1-based preset and TrueMove Core table for wired Aerox 3).
+//! * DPI: `2D, count, selected, code...` (`2D 01 00 code`, 0-based active preset index, with
+//!   TrueMove Air codes on wireless models and TrueMove Core codes on wired Aerox 3).
 //! * polling: `2B, code` with `[3, 2, 1, 0]` for `[125, 250, 500, 1000]` Hz on wireless models,
 //!   and `[4, 3, 2, 1]` on wired Aerox 3.
 //!
@@ -100,7 +100,9 @@ const AEROX3_WIRED_PROFILE: SensorProfile = SensorProfile {
     dpi_min: 200,
     dpi_max: 8500,
     dpi_codes: &TRUEMOVE_CORE_DPI_CODES,
-    first_preset: 1,
+    // Aerox 3 wired (0x1836) takes a 0-based preset index (00..=04, matching USB captures);
+    // rivalcfg 4.17.0 aerox3.py had first_preset: 1, which the mouse ignores for 1 preset.
+    first_preset: 0,
     polling_codes: [0x04, 0x03, 0x02, 0x01],
 };
 
@@ -544,10 +546,10 @@ mod tests {
         assert_eq!(polling_message_for(&WIRELESS_PROFILE, true, 125), Some(vec![0x6B, 0x03]));
         assert_eq!(polling_message_for(&WIRELESS_PROFILE, false, 2000), None);
 
-        // Aerox 3 wired: 1-based preset, TrueMove Core table, 1..=4 polling codes
+        // Aerox 3 wired: 0-based preset, TrueMove Core table, 1..=4 polling codes
         assert_eq!(
             dpi_message_for(&AEROX3_WIRED_PROFILE, false, 800),
-            (800, vec![0x2D, 0x01, 0x01, 0x12])
+            (800, vec![0x2D, 0x01, 0x00, 0x12])
         );
         assert_eq!(
             polling_message_for(&AEROX3_WIRED_PROFILE, false, 1000),

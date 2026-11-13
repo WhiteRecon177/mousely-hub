@@ -46,7 +46,7 @@ rate (`2B <code>` with 125=3, 250=2, 500=1, 1000=0). Through the receiver the co
 bit `0x40` and the 64-byte answer is read and dropped.
 
 For the wired Aerox 3 (`1038:1836`, TrueMove Core, no battery), it sends one DPI preset
-(`2D 01 01 <code>`, 200-8500 DPI in steps of 100) and the polling rate (`2B <code>` with
+(`2D 01 00 <code>`, 200-8500 DPI in steps of 100) and the polling rate (`2B <code>` with
 125=4, 250=3, 500=2, 1000=1).
 
 The "save to the mouse memory" command is **never** sent, so the settings last until the mouse is
