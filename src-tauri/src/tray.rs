@@ -21,7 +21,7 @@ use crate::mouse::commands::probe;
 use crate::mouse::MouseInfoDto;
 use crate::tray_icon::{describe, render, BatteryView, TrayState, SIZE};
 
-const TRAY_ID: &str = "devicedeck-tray";
+const TRAY_ID: &str = "mousely-hub-tray";
 const MENU_LABEL: &str = "tray-menu";
 const MENU_WIDTH: f64 = 250.0;
 const MENU_HEIGHT: f64 = 150.0;
@@ -53,6 +53,43 @@ fn focus<R: Runtime>(window: &tauri::WebviewWindow<R>) {
     let _ = window.set_focus();
 }
 
+/// Adapts the initial window size to smaller or high-DPI monitors while keeping 1180x720 whenever it fits.
+fn fit_window_to_monitor<R: Runtime>(
+    window: &tauri::WebviewWindow<R>,
+    target_w: f64,
+    target_h: f64,
+) {
+    let monitor = window
+        .current_monitor()
+        .ok()
+        .flatten()
+        .or_else(|| window.primary_monitor().ok().flatten());
+
+    let Some(monitor) = monitor else {
+        let _ = window.center();
+        return;
+    };
+
+    let scale = monitor.scale_factor();
+    let scale = if scale > 0.0 { scale } else { 1.0 };
+    let work = monitor.work_area();
+    let work_w = f64::from(work.size.width) / scale;
+    let work_h = f64::from(work.size.height) / scale;
+    let max_w = (work_w - 24.0).max(work_w.min(320.0));
+    let max_h = (work_h - 24.0).max(work_h.min(240.0));
+
+    if target_w > max_w || target_h > max_h {
+        let new_w = target_w.min(max_w).max(860.0_f64.min(max_w)).round();
+        let new_h = target_h.min(max_h).max(540.0_f64.min(max_h)).round();
+        let min_w = 860.0_f64.min(new_w);
+        let min_h = 540.0_f64.min(new_h);
+        let _ = window.set_min_size(Some(tauri::LogicalSize::new(min_w, min_h)));
+        let _ = window.set_size(tauri::LogicalSize::new(new_w, new_h));
+    }
+
+    let _ = window.center();
+}
+
 /// Shows the main window. When it does not exist (closed to the tray, or the app started with
 /// `--minimized`) it is created from the config first, on its own thread.
 pub fn show_window<R: Runtime>(app: &AppHandle<R>) {
@@ -73,6 +110,7 @@ pub fn show_window<R: Runtime>(app: &AppHandle<R>) {
         };
         if let Ok(builder) = WebviewWindowBuilder::from_config(&app, config) {
             if let Ok(window) = builder.build() {
+                fit_window_to_monitor(&window, config.width, config.height);
                 focus(&window);
             }
         }
@@ -234,7 +272,7 @@ pub fn tray_quit(app: AppHandle) {
 }
 
 pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
-    Builder::new("devicedeck-tray")
+    Builder::new("mousely-hub-tray")
         .setup(|app, _api| {
             if let Ok(mut text) = MENU_TEXT.lock() {
                 *text = ("Looking for mouse...".to_string(), String::new());

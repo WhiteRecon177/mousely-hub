@@ -7,7 +7,7 @@ use crate::mouse::{MouseCapabilitiesDto, MouseInfoDto, SupportLevel};
 
 pub const POLLING_OPTIONS: [u32; 7] = [125, 250, 500, 1000, 2000, 4000, 8000];
 
-pub const READ_ONLY: &str = "This mouse is read-only for now: Musubi Hub shows its state but does not change it";
+pub const READ_ONLY: &str = "This mouse is read-only for now: Mousely Hub shows its state but does not change it";
 
 /// What a read-only driver managed to read. Anything it could not read stays `None`.
 pub struct Reading {

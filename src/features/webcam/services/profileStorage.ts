@@ -1,12 +1,16 @@
-﻿import type { CameraSnapshot, WebcamProfile } from "../types";
+﻿import { getStorageItemWithMigration } from "../../../services/storage";
+import type { CameraSnapshot, WebcamProfile } from "../types";
 
-const PROFILES_KEY = "devicedeck.webcam.profiles";
-const AUTOSAVE_KEY = "devicedeck.webcam.autosave";
-const AUTOSAVE_ENABLED_KEY = "devicedeck.webcam.autosaveEnabled";
+const PROFILES_KEY = "mousely-hub.webcam.profiles";
+const LEGACY_PROFILES_KEY = "devicedeck.webcam.profiles";
+const AUTOSAVE_KEY = "mousely-hub.webcam.autosave";
+const LEGACY_AUTOSAVE_KEY = "devicedeck.webcam.autosave";
+const AUTOSAVE_ENABLED_KEY = "mousely-hub.webcam.autosaveEnabled";
+const LEGACY_AUTOSAVE_ENABLED_KEY = "devicedeck.webcam.autosaveEnabled";
 
-function readJson<T>(key: string, fallback: T): T {
+function readJson<T>(key: string, legacyKey: string, fallback: T): T {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = getStorageItemWithMigration(key, legacyKey);
     return raw ? (JSON.parse(raw) as T) : fallback;
   } catch {
     return fallback;
@@ -22,7 +26,7 @@ function writeJson(key: string, value: unknown): void {
 }
 
 export function loadProfiles(): WebcamProfile[] {
-  return readJson<WebcamProfile[]>(PROFILES_KEY, []);
+  return readJson<WebcamProfile[]>(PROFILES_KEY, LEGACY_PROFILES_KEY, []);
 }
 
 export function saveProfiles(profiles: WebcamProfile[]): void {
@@ -31,18 +35,18 @@ export function saveProfiles(profiles: WebcamProfile[]): void {
 
 // Last settings of each camera, stored by camera name
 export function loadAutosave(cameraLabel: string): CameraSnapshot | null {
-  const all = readJson<Record<string, CameraSnapshot>>(AUTOSAVE_KEY, {});
+  const all = readJson<Record<string, CameraSnapshot>>(AUTOSAVE_KEY, LEGACY_AUTOSAVE_KEY, {});
   return all[cameraLabel] ?? null;
 }
 
 export function saveAutosave(cameraLabel: string, snapshot: CameraSnapshot): void {
-  const all = readJson<Record<string, CameraSnapshot>>(AUTOSAVE_KEY, {});
+  const all = readJson<Record<string, CameraSnapshot>>(AUTOSAVE_KEY, LEGACY_AUTOSAVE_KEY, {});
   all[cameraLabel] = snapshot;
   writeJson(AUTOSAVE_KEY, all);
 }
 
 export function isAutosaveEnabled(): boolean {
-  return readJson<boolean>(AUTOSAVE_ENABLED_KEY, true);
+  return readJson<boolean>(AUTOSAVE_ENABLED_KEY, LEGACY_AUTOSAVE_ENABLED_KEY, true);
 }
 
 export function setAutosaveEnabled(value: boolean): void {

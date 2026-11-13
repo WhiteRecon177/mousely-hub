@@ -791,22 +791,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "devicedeck"
-version = "0.1.5"
-dependencies = [
- "hidapi",
- "rdev",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-updater",
- "windows 0.58.0",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2246,6 +2230,22 @@ dependencies = [
  "libc",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mousely-hub"
+version = "0.1.6"
+dependencies = [
+ "hidapi",
+ "rdev",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-updater",
+ "windows 0.58.0",
 ]
 
 [[package]]

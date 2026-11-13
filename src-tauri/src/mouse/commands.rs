@@ -41,6 +41,8 @@ fn not_found(diagnostics: Vec<String>) -> ProbeResult {
 
 /// The last reading of a connected mouse, used for the instant update when a cable is plugged.
 static LAST_INFO: Mutex<Option<MouseInfoDto>> = Mutex::new(None);
+/// Driver id that succeeded during the most recent probe, tried first on writes.
+static ACTIVE_DRIVER: Mutex<Option<&'static str>> = Mutex::new(None);
 
 pub fn last_info() -> Option<MouseInfoDto> {
     LAST_INFO
@@ -89,7 +91,11 @@ fn probe_inner() -> ProbeResult {
         }
     };
 
-    let found = drivers::probe(&api, &mut log);
+    let (driver_id, found) = drivers::probe_active(&api, &mut log);
+    if let Ok(mut active) = ACTIVE_DRIVER.lock() {
+        *active = driver_id;
+    }
+
     match found {
         Some(info) => ProbeResult {
             info,
@@ -99,31 +105,57 @@ fn probe_inner() -> ProbeResult {
     }
 }
 
-fn set_polling(hz: u32) -> Result<u32, String> {
+fn run_on_active_or_present<F>(mut action: F, empty_err: &str) -> Result<u32, String>
+where
+    F: FnMut(&dyn drivers::MouseDriver) -> Result<u32, String>,
+{
     let _guard = hid_lock();
     let api = HidApi::new().map_err(|error| error.to_string())?;
+    let preferred = ACTIVE_DRIVER.lock().ok().and_then(|guard| *guard);
 
-    // Quick check of which brand is plugged in: no full reading before writing.
-    for driver in drivers::registered() {
-        if driver.present(&api) {
-            return driver.set_polling(hz);
+    let mut drivers = drivers::registered();
+    if let Some(active_id) = preferred {
+        if let Some(pos) = drivers.iter().position(|d| d.id() == active_id) {
+            let active = drivers.remove(pos);
+            drivers.insert(0, active);
         }
     }
 
-    Err("No mouse with a configurable polling rate found".to_string())
+    let mut first_error: Option<String> = None;
+    for driver in drivers {
+        if !driver.present(&api) {
+            continue;
+        }
+        match action(driver.as_ref()) {
+            Ok(val) => {
+                if let Ok(mut active) = ACTIVE_DRIVER.lock() {
+                    *active = Some(driver.id());
+                }
+                return Ok(val);
+            }
+            Err(err) => {
+                if first_error.is_none() {
+                    first_error = Some(err);
+                }
+            }
+        }
+    }
+
+    Err(first_error.unwrap_or_else(|| empty_err.to_string()))
+}
+
+fn set_polling(hz: u32) -> Result<u32, String> {
+    run_on_active_or_present(
+        |driver| driver.set_polling(hz),
+        "No mouse with a configurable polling rate found",
+    )
 }
 
 fn set_dpi(value: u32) -> Result<u32, String> {
-    let _guard = hid_lock();
-    let api = HidApi::new().map_err(|error| error.to_string())?;
-
-    for driver in drivers::registered() {
-        if driver.present(&api) {
-            return driver.set_dpi(value);
-        }
-    }
-
-    Err("No mouse with adjustable DPI found".to_string())
+    run_on_active_or_present(
+        |driver| driver.set_dpi(value),
+        "No mouse with adjustable DPI found",
+    )
 }
 
 // Read-only: looks for a supported mouse and reports what it says.

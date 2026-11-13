@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    devicedeck_lib::run()
+    mousely_hub_lib::run()
 }

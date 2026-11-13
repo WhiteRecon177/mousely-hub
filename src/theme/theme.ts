@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { getStorageItemWithMigration } from "../services/storage";
 
 export type ThemeId = "indigo" | "sunset" | "crimson" | "ice";
 
@@ -10,7 +11,8 @@ export const THEMES: { id: ThemeId; name: string }[] = [
   { id: "ice", name: "Ice" },
 ];
 
-const STORAGE_KEY = "devicedeck.theme";
+const STORAGE_KEY = "mousely-hub.theme";
+const LEGACY_STORAGE_KEY = "devicedeck.theme";
 const DEFAULT_THEME: ThemeId = "indigo";
 
 function isTheme(value: unknown): value is ThemeId {
@@ -18,12 +20,8 @@ function isTheme(value: unknown): value is ThemeId {
 }
 
 function load(): ThemeId {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (isTheme(saved)) return saved;
-  } catch {
-    // storage not available: use the default
-  }
+  const saved = getStorageItemWithMigration(STORAGE_KEY, LEGACY_STORAGE_KEY);
+  if (isTheme(saved)) return saved;
   return DEFAULT_THEME;
 }
 

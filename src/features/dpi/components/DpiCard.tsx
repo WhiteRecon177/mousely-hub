@@ -9,6 +9,7 @@ interface DpiCardProps {
   disabled: boolean;
   /** true when the stages are the ones stored in the mouse (read-only list) */
   fromDevice: boolean;
+  readOnlyNote?: string;
   onSelectStage: (value: number) => void;
 }
 
@@ -37,6 +38,7 @@ export function DpiCard({
   stages,
   disabled,
   fromDevice,
+  readOnlyNote,
   onSelectStage,
 }: DpiCardProps) {
   const t = useT();
@@ -95,6 +97,8 @@ export function DpiCard({
         </span>
       </div>
 
+      {readOnlyNote && <div className="dd-dpi-readonly">{readOnlyNote}</div>}
+
       <div className="dd-dpi-body">
         <div className="dd-ring-slot">
           <div className="dd-ring">
@@ -118,30 +122,32 @@ export function DpiCard({
         </div>
 
         <div className="dd-dpi-stack">
-          <div
-            className={stageListClass}
-            title={fromDevice ? t("dpi.levelsFromMouse") : undefined}
-          >
-            {stages.map((stage, index) => (
-              <button
-                key={stage}
-                type="button"
-                className={stage === dpi ? "dd-stage-row dd-stage-row--active" : "dd-stage-row"}
-                disabled={disabled || outOfRange(stage)}
-                title={outOfRange(stage) ? t("dpi.stageUnsupported", { min: info.dpiMin, max: info.dpiMax }) : undefined}
-                onClick={() => onSelectStage(stage)}
-              >
-                <span className="dd-stage-top">
-                  <span className="dd-stage-idx">{String(index + 1).padStart(2, "0")}</span>
-                  {stage === dpi && <span className="dd-stage-dot" />}
-                </span>
-                <span className="dd-stage-val">
-                  {stage}
-                  <small>DPI</small>
-                </span>
-              </button>
-            ))}
-          </div>
+          {stages.length > 0 && (
+            <div
+              className={stageListClass}
+              title={fromDevice ? t("dpi.levelsFromMouse") : undefined}
+            >
+              {stages.map((stage, index) => (
+                <button
+                  key={stage}
+                  type="button"
+                  className={stage === dpi ? "dd-stage-row dd-stage-row--active" : "dd-stage-row"}
+                  disabled={disabled || outOfRange(stage)}
+                  title={outOfRange(stage) ? t("dpi.stageUnsupported", { min: info.dpiMin, max: info.dpiMax }) : undefined}
+                  onClick={() => onSelectStage(stage)}
+                >
+                  <span className="dd-stage-top">
+                    <span className="dd-stage-idx">{String(index + 1).padStart(2, "0")}</span>
+                    {stage === dpi && <span className="dd-stage-dot" />}
+                  </span>
+                  <span className="dd-stage-val">
+                    {stage}
+                    <small>DPI</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <form
             className="dd-custom-card"

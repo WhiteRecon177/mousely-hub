@@ -1,6 +1,8 @@
+import { getStorageItemWithMigration } from "../../../services/storage";
 import { RemapState } from "../types";
 
-const STORAGE_KEY = "devicedeck.mouse.remap";
+const STORAGE_KEY = "mousely-hub.mouse.remap";
+const LEGACY_STORAGE_KEY = "devicedeck.mouse.remap";
 
 export function defaultRemapState(): RemapState {
   return { enabled: false, actions: {} };
@@ -8,7 +10,7 @@ export function defaultRemapState(): RemapState {
 
 export function loadRemapState(): RemapState {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = getStorageItemWithMigration(STORAGE_KEY, LEGACY_STORAGE_KEY);
     if (!raw) return defaultRemapState();
     const parsed = JSON.parse(raw) as RemapState;
     return { enabled: Boolean(parsed.enabled), actions: parsed.actions ?? {} };
@@ -18,7 +20,7 @@ export function loadRemapState(): RemapState {
 }
 
 /** Sent on window when the remap state was changed from outside the UI (backend value). */
-export const REMAP_CHANGED_EVENT = "devicedeck-remap-changed";
+export const REMAP_CHANGED_EVENT = "mousely-hub-remap-changed";
 
 export function saveRemapState(state: RemapState): void {
   try {

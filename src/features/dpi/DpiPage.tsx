@@ -93,7 +93,7 @@ export function DpiPage() {
         {info !== null && info.connected && (
           <>
             {!info.capabilities.dpiRead ? (
-              <div className="dd-dpi-muted">{t("mouse.dpiNotAvailable")}</div>
+              <div className="dd-dpi-notice">{t("mouse.dpiNotAvailable")}</div>
             ) : info.dpiMax > 0 ? (
               <DpiCard
                 info={info}
@@ -101,14 +101,19 @@ export function DpiPage() {
                 stages={info.dpiLevels.length > 0 ? info.dpiLevels : dpi.stages}
                 fromDevice={info.dpiLevels.length > 0}
                 disabled={!DPI_WRITE_ENABLED || !info.capabilities.dpiWrite}
+                readOnlyNote={
+                  !DPI_WRITE_ENABLED || !info.capabilities.dpiWrite
+                    ? t("mouse.dpiReadOnly")
+                    : undefined
+                }
                 onSelectStage={dpi.selectStage}
               />
             ) : (
-              <div className="dd-dpi-muted">{t("mouse.dpiRangeUnknown")}</div>
+              <div className="dd-dpi-notice">{t("mouse.dpiRangeUnknown")}</div>
             )}
 
             {!info.capabilities.pollingRead ? (
-              <div className="dd-dpi-muted">{t("mouse.pollingNotAvailable")}</div>
+              <div className="dd-dpi-notice">{t("mouse.pollingNotAvailable")}</div>
             ) : (
               <PollingCard
                 info={info}
@@ -122,8 +127,9 @@ export function DpiPage() {
         {info !== null &&
           info.connected &&
           info.capabilities.dpiRead &&
+          info.dpiMax <= 0 &&
           (!DPI_WRITE_ENABLED || !info.capabilities.dpiWrite) && (
-            <div className="dd-dpi-muted">
+            <div className="dd-dpi-notice">
               {t("mouse.dpiReadOnly")}
             </div>
           )}

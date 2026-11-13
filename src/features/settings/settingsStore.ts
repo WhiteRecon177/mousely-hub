@@ -1,4 +1,7 @@
-const KEY = "devicedeck.settings";
+import { getStorageItemWithMigration } from "../../services/storage";
+
+const KEY = "mousely-hub.settings";
+const LEGACY_KEY = "devicedeck.settings";
 
 export type Settings = {
   /** Closing the window keeps the app running in the tray. */
@@ -11,7 +14,7 @@ export const DEFAULT_SETTINGS: Settings = { closeToTray: true, autoUpdate: true 
 
 export function loadSettings(): Settings {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = getStorageItemWithMigration(KEY, LEGACY_KEY);
     if (!raw) return DEFAULT_SETTINGS;
     const parsed: unknown = JSON.parse(raw);
     if (parsed && typeof parsed === "object") {

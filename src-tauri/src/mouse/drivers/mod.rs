@@ -19,7 +19,6 @@ const GENERIC_DESKTOP_USAGE_PAGE: u16 = 0x0001;
 const MOUSE_USAGE: u16 = 0x0002;
 
 pub trait MouseDriver: Send + Sync {
-    #[allow(dead_code)]
     fn id(&self) -> &'static str;
     fn brand(&self) -> &'static str;
     /// Quick check: is a device of this brand plugged in? No reading, no waiting.
@@ -46,17 +45,25 @@ pub fn registered() -> Vec<Box<dyn MouseDriver>> {
     ]
 }
 
-pub fn probe(api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
+pub fn probe_active(
+    api: &HidApi,
+    log: &mut Vec<String>,
+) -> (Option<&'static str>, Option<MouseInfoDto>) {
     for driver in registered() {
         if !driver.present(api) {
             continue;
         }
         if let Some(info) = driver.probe(api, log) {
-            return Some(info);
+            return (Some(driver.id()), Some(info));
         }
     }
 
-    probe_unknown_mouse(api, log)
+    (None, probe_unknown_mouse(api, log))
+}
+
+#[allow(dead_code)]
+pub fn probe(api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
+    probe_active(api, log).1
 }
 
 fn probe_unknown_mouse(api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {

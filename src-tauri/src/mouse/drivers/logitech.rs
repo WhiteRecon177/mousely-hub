@@ -25,8 +25,11 @@ impl MouseDriver for LogitechDriver {
     }
 
     fn present(&self, api: &HidApi) -> bool {
-        api.device_list()
-            .any(|device| device.vendor_id() == LOGITECH_VID)
+        api.device_list().any(|device| {
+            device.vendor_id() == LOGITECH_VID
+                && device.usage_page() == HIDPP_USAGE_PAGE
+                && device.usage() == HIDPP_LONG_USAGE
+        })
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
@@ -205,6 +208,7 @@ struct DpiData {
     writable: bool,
 }
 
+const CLASSIC_DPI_FEATURE: u16 = 0x2201;
 const EXT_DPI_FEATURE: u16 = 0x2202;
 // Feature 0x2202 functions (sensor 0). Layout from the open HID++ documentation (0BSD crate
 // "openlogi-hidpp"): 2 = DPI ranges (paged), 3 = DPI list, 5 = get DPI, 6 = set DPI.
@@ -213,28 +217,39 @@ const EXT_FN_LIST: u8 = 3;
 const EXT_FN_GET: u8 = 5;
 const EXT_FN_SET: u8 = 6;
 
+fn parse_classic_dpi_range(list_payload: &[u8]) -> Option<(u32, u32, u32)> {
+    parse_dpi_list(list_payload.get(1..)?)
+}
+
+fn decode_dpi_current(payload: &[u8]) -> Option<u32> {
+    let high = *payload.get(1)?;
+    let low = *payload.get(2)?;
+    Some(u32::from(u16::from_be_bytes([high, low])))
+}
+
+fn encode_classic_dpi_set(value: u32) -> [u8; 3] {
+    let clamped = value.min(u32::from(u16::MAX)) as u16;
+    let bytes = clamped.to_be_bytes();
+    [0, bytes[0], bytes[1]]
+}
+
 // Reads DPI. Tries the classic feature (0x2201), then the extended one (0x2202).
 fn read_dpi(hp: &Hidpp, dev: u8, log: &mut Vec<String>) -> Option<DpiData> {
     let sensor = [0u8];
 
-    if let Some(feature) = find_feature(hp, dev, 0x2201, log) {
+    if let Some(feature) = find_feature(hp, dev, CLASSIC_DPI_FEATURE, log) {
         let list = req(hp, dev, feature, 1, &sensor, "DPI list", log)?;
-        let values = list.get(1..)?;
-        let (min, max, step) = parse_dpi_list(values)?;
+        let (min, max, step) = parse_classic_dpi_range(&list)?;
         let current = req(hp, dev, feature, 2, &sensor, "current DPI", log)?;
-        let dpi = u32::from(u16::from_be_bytes([
-            *current.get(1)?,
-            *current.get(2)?,
-        ]));
+        let dpi = decode_dpi_current(&current)?;
 
-        // Writing through the classic feature is not implemented yet.
         return Some(DpiData {
             current: dpi,
             min,
             max,
             step,
             levels: Vec::new(),
-            writable: false,
+            writable: dpi > 0,
         });
     }
 
@@ -549,7 +564,49 @@ fn read_battery(hp: &Hidpp, dev: u8, log: &mut Vec<String>) -> (Option<u32>, boo
     (None, false)
 }
 
+fn decode_classic_polling_mask(mask: u8) -> Vec<u32> {
+    let mut supported = Vec::new();
+    for bit in 0..8u32 {
+        if mask & (1 << bit) != 0 {
+            let milliseconds = bit + 1;
+            if 1000 % milliseconds == 0 {
+                supported.push(1000 / milliseconds);
+            }
+        }
+    }
+    supported.sort_unstable();
+    supported
+}
+
+fn classic_polling_ms(hz: u32) -> Option<u8> {
+    if hz == 0 || 1000 % hz != 0 {
+        return None;
+    }
+    let ms = 1000 / hz;
+    if (1..=8).contains(&ms) {
+        Some(ms as u8)
+    } else {
+        None
+    }
+}
+
+fn classic_polling_hz(ms: u8) -> u32 {
+    if ms > 0 {
+        1000 / u32::from(ms)
+    } else {
+        0
+    }
+}
+
 fn read_polling(hp: &Hidpp, dev: u8, connection: &str, log: &mut Vec<String>) -> (u32, Vec<u32>) {
+    // Onboard profiles (read only): fn 0 = description, fn 2 = mode (1 = onboard, 2 = host),
+    // fn 4 = current profile. Logged first so diagnostics show onboard mode on both 0x8060 and 0x8061 mice.
+    if let Some(profiles) = find_feature(hp, dev, 0x8100, log) {
+        let _ = req(hp, dev, profiles, 0, &[0, 0, 0], "onboard profiles fn 0 (description)", log);
+        let _ = req(hp, dev, profiles, 2, &[0, 0, 0], "onboard profiles fn 2 (mode)", log);
+        let _ = req(hp, dev, profiles, 4, &[0, 0, 0], "onboard profiles fn 4 (current profile)", log);
+    }
+
     // Classic report rate: values in milliseconds
     if let Some(feature) = find_feature(hp, dev, 0x8060, log) {
         let list = req(
@@ -573,25 +630,9 @@ fn read_polling(hp: &Hidpp, dev: u8, connection: &str, log: &mut Vec<String>) ->
 
         if let (Some(list), Some(current)) = (list, current) {
             let mask = list.first().copied().unwrap_or(0);
-            let mut supported = Vec::new();
-
-            for bit in 0..8u32 {
-                if mask & (1 << bit) != 0 {
-                    let milliseconds = bit + 1;
-                    if 1000 % milliseconds == 0 {
-                        supported.push(1000 / milliseconds);
-                    }
-                }
-            }
-
-            supported.sort_unstable();
-
-            let milliseconds = u32::from(current.first().copied().unwrap_or(0));
-            let hz = if milliseconds > 0 {
-                1000 / milliseconds
-            } else {
-                0
-            };
+            let supported = decode_classic_polling_mask(mask);
+            let milliseconds = current.first().copied().unwrap_or(0);
+            let hz = classic_polling_hz(milliseconds);
 
             return (hz, supported);
         }
@@ -601,14 +642,6 @@ fn read_polling(hp: &Hidpp, dev: u8, connection: &str, log: &mut Vec<String>) ->
     // Functions: 0 = capabilities, 1 = rates available now, 2 = current rate, 3 = SET the rate.
     // Only the read functions are called here: function 3 changes the mouse.
     // Functions 0 and 2 take the connection type: 0 = cable, 1 = wireless receiver.
-    // Onboard profiles (read only): fn 0 = description, fn 2 = mode (1 = onboard, 2 = host),
-    // fn 4 = current profile. Tells whether the mouse keeps its own settings.
-    if let Some(profiles) = find_feature(hp, dev, 0x8100, log) {
-        let _ = req(hp, dev, profiles, 0, &[0, 0, 0], "onboard profiles fn 0 (description)", log);
-        let _ = req(hp, dev, profiles, 2, &[0, 0, 0], "onboard profiles fn 2 (mode)", log);
-        let _ = req(hp, dev, profiles, 4, &[0, 0, 0], "onboard profiles fn 4 (current profile)", log);
-    }
-
     if let Some(feature) = find_feature(hp, dev, 0x8061, log) {
         let conn = ext_rate_connection(connection);
 
@@ -708,12 +741,199 @@ fn ensure_host_mode(hp: &Hidpp, index: u8) -> Result<bool, String> {
     Err("Host mode: the mouse did not switch to host mode".to_string())
 }
 
-/// Sets the polling rate through the extended report rate feature and checks it by reading it back.
+enum PollingOutcome {
+    Applied(u32),
+    RetryNext(String),
+    Fatal(String),
+}
+
+fn set_polling_ext(hp: &Hidpp, index: u8, feature: u8, conn: u8, hz: u32) -> PollingOutcome {
+    let Some(code) = EXT_RATES_HZ.iter().position(|&rate| rate == hz) else {
+        return PollingOutcome::Fatal(format!("{} Hz is not a valid polling rate", hz));
+    };
+
+    // In onboard mode the polling rate belongs to the profile stored in the mouse
+    // and the mouse refuses changes (error 0x02). Switch to host mode first.
+    let switched = match ensure_host_mode(hp, index) {
+        Ok(switched) => switched,
+        Err(error) => return PollingOutcome::Fatal(error),
+    };
+
+    // Right after the switch the mouse can ignore changes for a moment.
+    if switched {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+    }
+
+    let list = match hp.request(index, feature, 1, &[0, 0, 0], 400) {
+        Ok(list) => list,
+        Err(error) => {
+            return PollingOutcome::Fatal(format!(
+                "Polling rate: reading the available rates failed: {}",
+                error
+            ))
+        }
+    };
+
+    let (Some(high), Some(low)) = (list.first(), list.get(1)) else {
+        return PollingOutcome::Fatal(
+            "The mouse returned an invalid polling rate list".to_string(),
+        );
+    };
+
+    let flags = (u16::from(*high) << 8) | u16::from(*low);
+
+    if flags & (1 << code) == 0 {
+        return PollingOutcome::Fatal(format!("{} Hz is not available with this connection", hz));
+    }
+
+    let mut last: Option<u8> = None;
+    let mut last_error: Option<String> = None;
+
+    // The mouse can need a moment to apply the new rate (a wireless link may even
+    // re-synchronise). If it still reports the old one, send the value once more.
+    for _send in 0..2 {
+        if let Err(error) = hp.request(index, feature, 3, &[code as u8, 0, 0], 400) {
+            return PollingOutcome::Fatal(format!(
+                "Polling rate: the mouse refused the new value (sent {:02X} 00 00, device index {:02X}, feature index {:02X}): {}",
+                code, index, feature, error
+            ));
+        }
+
+        for attempt in 0..5 {
+            std::thread::sleep(std::time::Duration::from_millis(if attempt == 0 {
+                60
+            } else {
+                120
+            }));
+
+            let _other = hp
+                .request(index, feature, 2, &[1 - conn, 0, 0], 400)
+                .ok()
+                .and_then(|value| value.first().copied());
+
+            match hp.request(index, feature, 2, &[conn, 0, 0], 400) {
+                Ok(now) => {
+                    last = now.first().copied();
+                    last_error = None;
+
+                    if matches!(last, Some(current) if usize::from(current) == code) {
+                        return PollingOutcome::Applied(hz);
+                    }
+                }
+                Err(error) => last_error = Some(error.to_string()),
+            }
+        }
+    }
+
+    if let Some(error) = last_error {
+        return PollingOutcome::Fatal(format!(
+            "Polling rate: the new value was sent but could not be checked: {}",
+            error
+        ));
+    }
+
+    PollingOutcome::RetryNext(match last {
+        Some(current) => format!(
+            "The mouse did not keep the new polling rate (asked {} Hz, it reports {} Hz)",
+            hz,
+            EXT_RATES_HZ
+                .get(usize::from(current))
+                .copied()
+                .unwrap_or(0)
+        ),
+        None => "The mouse returned an invalid polling rate response".to_string(),
+    })
+}
+
+fn set_polling_classic(hp: &Hidpp, index: u8, feature: u8, hz: u32) -> PollingOutcome {
+    let Some(ms) = classic_polling_ms(hz) else {
+        return PollingOutcome::Fatal(format!("{} Hz is not supported by this mouse", hz));
+    };
+
+    let switched = match ensure_host_mode(hp, index) {
+        Ok(switched) => switched,
+        Err(error) => return PollingOutcome::Fatal(error),
+    };
+
+    if switched {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+    }
+
+    let list = match hp.request(index, feature, 0, &[], 400) {
+        Ok(list) => list,
+        Err(error) => {
+            return PollingOutcome::Fatal(format!(
+                "Polling rate: reading the available rates failed: {}",
+                error
+            ))
+        }
+    };
+
+    let Some(&mask) = list.first() else {
+        return PollingOutcome::Fatal(
+            "The mouse returned an invalid polling rate list".to_string(),
+        );
+    };
+
+    if mask & (1 << (ms - 1)) == 0 {
+        return PollingOutcome::Fatal(format!("{} Hz is not available with this connection", hz));
+    }
+
+    let mut last: Option<u8> = None;
+    let mut last_error: Option<String> = None;
+
+    for _send in 0..2 {
+        if let Err(error) = hp.request(index, feature, 2, &[ms], 400) {
+            return PollingOutcome::Fatal(format!(
+                "Polling rate: the mouse refused the new value (sent {:02X}, device index {:02X}, feature index {:02X}): {}",
+                ms, index, feature, error
+            ));
+        }
+
+        for attempt in 0..5 {
+            std::thread::sleep(std::time::Duration::from_millis(if attempt == 0 {
+                60
+            } else {
+                120
+            }));
+
+            match hp.request(index, feature, 1, &[], 400) {
+                Ok(now) => {
+                    last = now.first().copied();
+                    last_error = None;
+
+                    if last == Some(ms) {
+                        return PollingOutcome::Applied(hz);
+                    }
+                }
+                Err(error) => last_error = Some(error.to_string()),
+            }
+        }
+    }
+
+    if let Some(error) = last_error {
+        return PollingOutcome::Fatal(format!(
+            "Polling rate: the new value was sent but could not be checked: {}",
+            error
+        ));
+    }
+
+    PollingOutcome::RetryNext(match last {
+        Some(current_ms) if current_ms > 0 => format!(
+            "The mouse did not keep the new polling rate (asked {} Hz, it reports {} Hz)",
+            hz,
+            classic_polling_hz(current_ms)
+        ),
+        _ => "The mouse returned an invalid polling rate response".to_string(),
+    })
+}
+
+/// Sets the polling rate through the extended (0x8061) or classic (0x8060) report rate feature
+/// and checks it by reading it back.
 fn set_polling(hz: u32) -> Result<u32, String> {
-    let code = EXT_RATES_HZ
-        .iter()
-        .position(|&rate| rate == hz)
-        .ok_or_else(|| format!("{} Hz is not a valid polling rate", hz))?;
+    if !EXT_RATES_HZ.contains(&hz) && classic_polling_ms(hz).is_none() {
+        return Err(format!("{} Hz is not a valid polling rate", hz));
+    }
 
     let api = HidApi::new().map_err(|error| error.to_string())?;
     let mut failure: Option<String> = None;
@@ -745,118 +965,109 @@ fn set_polling(hz: u32) -> Result<u32, String> {
                 continue;
             }
 
-            let feature = match hp.feature_index(index, 0x8061) {
-                Ok(Some(feature)) => feature,
-                Ok(None) | Err(_) => continue,
+            let outcome = if let Ok(Some(feature)) = hp.feature_index(index, 0x8061) {
+                let conn = if via_receiver || index != 0xFF { 1 } else { 0 };
+                set_polling_ext(&hp, index, feature, conn, hz)
+            } else if let Ok(Some(feature)) = hp.feature_index(index, 0x8060) {
+                set_polling_classic(&hp, index, feature, hz)
+            } else {
+                continue;
             };
 
-            let conn = if via_receiver || index != 0xFF { 1 } else { 0 };
-            let _mode_text = |hp: &Hidpp| -> String {
-                match hp.feature_index(index, 0x8100) {
-                    Ok(Some(f)) => match hp.request(index, f, 2, &[0, 0, 0], 400) {
-                        Ok(m) => format!("{:?}", m.first()),
-                        Err(e) => format!("error {}", e),
-                    },
-                    _ => "none".to_string(),
-                }
-            };
-
-            // In onboard mode the polling rate belongs to the profile stored in the mouse
-            // and the mouse refuses changes (error 0x02). Switch to host mode first.
-            let switched = ensure_host_mode(&hp, index)?;
-
-            // Right after the switch the mouse can ignore changes for a moment.
-            if switched {
-                std::thread::sleep(std::time::Duration::from_millis(400));
-            }
-
-            let list = hp
-                .request(index, feature, 1, &[0, 0, 0], 400)
-                .map_err(|error| format!("Polling rate: reading the available rates failed: {}", error))?;
-
-            let high = list
-                .first()
-                .ok_or_else(|| "The mouse returned an invalid polling rate list".to_string())?;
-            let low = list
-                .get(1)
-                .ok_or_else(|| "The mouse returned an invalid polling rate list".to_string())?;
-
-            let flags = (u16::from(*high) << 8) | u16::from(*low);
-
-            if flags & (1 << code) == 0 {
-                return Err(format!(
-                    "{} Hz is not available with this connection",
-                    hz
-                ));
-            }
-
-            let mut last: Option<u8> = None;
-            let mut last_error: Option<String> = None;
-
-            // The mouse can need a moment to apply the new rate (a wireless link may even
-            // re-synchronise). If it still reports the old one, send the value once more.
-            for _send in 0..2 {
-                hp.request(index, feature, 3, &[code as u8, 0, 0], 400)
-                    .map_err(|error| {
-                        format!(
-                            "Polling rate: the mouse refused the new value (sent {:02X} 00 00, device index {:02X}, feature index {:02X}): {}",
-                            code, index, feature, error
-                        )
-                    })?;
-
-                for attempt in 0..5 {
-                    std::thread::sleep(std::time::Duration::from_millis(if attempt == 0 {
-                        60
-                    } else {
-                        120
-                    }));
-
-                    let _other = hp
-                        .request(index, feature, 2, &[1 - conn, 0, 0], 400)
-                        .ok()
-                        .and_then(|value| value.first().copied());
-
-                    match hp.request(index, feature, 2, &[conn, 0, 0], 400) {
-                        Ok(now) => {
-                            last = now.first().copied();
-                            last_error = None;
-
-                            if matches!(last, Some(current) if usize::from(current) == code) {
-                                return Ok(hz);
-                            }
-                        }
-                        Err(error) => last_error = Some(error.to_string()),
-                    }
+            match outcome {
+                PollingOutcome::Applied(rate) => return Ok(rate),
+                PollingOutcome::Fatal(err) => return Err(err),
+                PollingOutcome::RetryNext(err) => {
+                    failure = Some(err);
+                    continue;
                 }
             }
-
-            if let Some(error) = last_error {
-                return Err(format!(
-                    "Polling rate: the new value was sent but could not be checked: {}",
-                    error
-                ));
-            }
-
-            failure = Some(match last {
-                Some(current) => format!(
-                    "The mouse did not keep the new polling rate (asked {} Hz, it reports {} Hz)",
-                    hz,
-                    EXT_RATES_HZ
-                        .get(usize::from(current))
-                        .copied()
-                        .unwrap_or(0)
-                ),
-                None => "The mouse returned an invalid polling rate response".to_string(),
-            });
-            // Try the next interface of the same mouse before giving up.
-            continue;
         }
     }
 
     Err(failure.unwrap_or_else(|| "No mouse with a configurable polling rate found".to_string()))
 }
 
-/// Sets the DPI through the extended DPI feature and checks it by reading it back.
+fn verify_dpi_readback(after: &[u8], expected: u32) -> Result<u32, String> {
+    let got = decode_dpi_current(after)
+        .ok_or_else(|| "The mouse returned an invalid DPI response".to_string())?;
+
+    if got == expected {
+        Ok(expected)
+    } else {
+        Err(format!(
+            "The mouse did not accept {} DPI (it reports {})",
+            expected, got
+        ))
+    }
+}
+
+fn set_dpi_classic(hp: &Hidpp, index: u8, feature: u8, value: u32) -> Result<u32, String> {
+    if let Ok(list) = hp.request(index, feature, 1, &[0], 400) {
+        if let Some((min, max, _)) = parse_classic_dpi_range(&list) {
+            if value < min || value > max {
+                return Err(format!(
+                    "{} DPI is outside the range of this mouse ({}-{})",
+                    value, min, max
+                ));
+            }
+        }
+    }
+
+    let value = value.min(u32::from(u16::MAX));
+    let params = encode_classic_dpi_set(value);
+
+    hp.request(index, feature, 3, &params, 400)
+        .map_err(|error| error.to_string())?;
+
+    let after = hp
+        .request(index, feature, 2, &[0], 400)
+        .map_err(|error| error.to_string())?;
+
+    verify_dpi_readback(&after, value)
+}
+
+fn set_dpi_ext(hp: &Hidpp, index: u8, feature: u8, value: u32) -> Result<u32, String> {
+    // keep the lift-off distance the mouse already uses
+    let now = hp
+        .request(index, feature, EXT_FN_GET, &[0, 0, 0], 400)
+        .map_err(|error| error.to_string())?;
+    let lod = now.get(9).copied().unwrap_or(0);
+
+    let mut ignored = Vec::new();
+    if let Some((min, max, _)) =
+        read_ext_ranges(hp, index, feature, &mut ignored).and_then(|bytes| parse_dpi_list(&bytes))
+    {
+        if value < min || value > max {
+            return Err(format!(
+                "{} DPI is outside the range of this mouse ({}-{})",
+                value, min, max
+            ));
+        }
+    }
+    // The value is written as two bytes, so it cannot pass 65535 (also when no range is known).
+    let value = value.min(u32::from(u16::MAX));
+
+    let high = (value >> 8) as u8;
+    let low = (value & 0xFF) as u8;
+
+    hp.request(
+        index,
+        feature,
+        EXT_FN_SET,
+        &[0, high, low, high, low, lod],
+        400,
+    )
+    .map_err(|error| error.to_string())?;
+
+    let after = hp
+        .request(index, feature, EXT_FN_GET, &[0, 0, 0], 400)
+        .map_err(|error| error.to_string())?;
+
+    verify_dpi_readback(&after, value)
+}
+
+/// Sets the DPI through the classic (0x2201) or extended (0x2202) DPI feature and checks it by reading it back.
 fn set_dpi(value: u32) -> Result<u32, String> {
     if !(50..=100_000).contains(&value) {
         return Err(format!("{} DPI is not a valid value", value));
@@ -886,61 +1097,21 @@ fn set_dpi(value: u32) -> Result<u32, String> {
                 continue;
             }
 
-            let feature = match hp.feature_index(index, EXT_DPI_FEATURE) {
-                Ok(Some(feature)) => feature,
-                Ok(None) | Err(_) => continue,
-            };
-
-            // keep the lift-off distance the mouse already uses
-            let now = hp
-                .request(index, feature, EXT_FN_GET, &[0, 0, 0], 400)
-                .map_err(|error| error.to_string())?;
-            let lod = now.get(9).copied().unwrap_or(0);
-
-            let mut ignored = Vec::new();
-            let mut value = value;
-            if let Some((min, max, _)) =
-                read_ext_ranges(&hp, index, feature, &mut ignored).and_then(|bytes| parse_dpi_list(&bytes))
-            {
-                if value < min || value > max {
-                    return Err(format!(
-                        "{} DPI is outside the range of this mouse ({}-{})",
-                        value, min, max
-                    ));
+            if let Ok(Some(feature)) = hp.feature_index(index, CLASSIC_DPI_FEATURE) {
+                let switched = ensure_host_mode(&hp, index)?;
+                if switched {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
                 }
+                return set_dpi_classic(&hp, index, feature, value);
             }
-            // The value is written as two bytes, so it cannot pass 65535 (also when no range is known).
-            value = value.min(u32::from(u16::MAX));
 
-            let high = (value >> 8) as u8;
-            let low = (value & 0xFF) as u8;
-
-            hp.request(
-                index,
-                feature,
-                EXT_FN_SET,
-                &[0, high, low, high, low, lod],
-                400,
-            )
-            .map_err(|error| error.to_string())?;
-
-            let after = hp
-                .request(index, feature, EXT_FN_GET, &[0, 0, 0], 400)
-                .map_err(|error| error.to_string())?;
-
-            let got = match (after.get(1), after.get(2)) {
-                (Some(high), Some(low)) => u32::from(u16::from_be_bytes([*high, *low])),
-                _ => return Err("The mouse returned an invalid DPI response".to_string()),
-            };
-
-            return if got == value {
-                Ok(value)
-            } else {
-                Err(format!(
-                    "The mouse did not accept {} DPI (it reports {})",
-                    value, got
-                ))
-            };
+            if let Ok(Some(feature)) = hp.feature_index(index, EXT_DPI_FEATURE) {
+                let switched = ensure_host_mode(&hp, index)?;
+                if switched {
+                    std::thread::sleep(std::time::Duration::from_millis(400));
+                }
+                return set_dpi_ext(&hp, index, feature, value);
+            }
         }
     }
 
@@ -994,5 +1165,41 @@ mod tests {
     #[test]
     fn rejects_empty_answers() {
         assert!(parse_ext_dpi(None, Some(&[0u8; 16]), Some(&[0u8; 16])).is_none());
+    }
+
+    #[test]
+    fn decodes_classic_0x2201_g502x_dpi_range_and_encoding() {
+        // Real G502 X 0x2201 fn 1 response prefix: sensor 0, min 100 (00 64), step 50 (E0 32), max 25600 (64 00)
+        let g502x_fn1 = [0x00, 0x00, 0x64, 0xE0, 0x32, 0x64, 0x00, 0x00, 0x00];
+        assert_eq!(parse_classic_dpi_range(&g502x_fn1), Some((100, 25600, 50)));
+
+        assert_eq!(encode_classic_dpi_set(800), [0x00, 0x03, 0x20]);
+        assert_eq!(encode_classic_dpi_set(1600), [0x00, 0x06, 0x40]);
+        assert_eq!(encode_classic_dpi_set(25600), [0x00, 0x64, 0x00]);
+        assert_eq!(encode_classic_dpi_set(80_000), [0x00, 0xFF, 0xFF]);
+
+        let fn2_resp = [0x00, 0x06, 0x40, 0x03, 0x20];
+        assert_eq!(decode_dpi_current(&fn2_resp), Some(1600));
+        assert!(verify_dpi_readback(&fn2_resp, 1600).is_ok());
+        assert!(verify_dpi_readback(&fn2_resp, 800).is_err());
+    }
+
+    #[test]
+    fn decodes_classic_0x8060_mask_and_hz_ms_mapping() {
+        assert_eq!(decode_classic_polling_mask(0x8B), vec![125, 250, 500, 1000]);
+
+        assert_eq!(classic_polling_ms(1000), Some(1));
+        assert_eq!(classic_polling_ms(500), Some(2));
+        assert_eq!(classic_polling_ms(250), Some(4));
+        assert_eq!(classic_polling_ms(125), Some(8));
+        assert_eq!(classic_polling_ms(0), None);
+        assert_eq!(classic_polling_ms(333), None);
+        assert_eq!(classic_polling_ms(2000), None);
+
+        assert_eq!(classic_polling_hz(1), 1000);
+        assert_eq!(classic_polling_hz(2), 500);
+        assert_eq!(classic_polling_hz(4), 250);
+        assert_eq!(classic_polling_hz(8), 125);
+        assert_eq!(classic_polling_hz(0), 0);
     }
 }

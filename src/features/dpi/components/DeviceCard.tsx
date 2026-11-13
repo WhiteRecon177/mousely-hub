@@ -105,7 +105,9 @@ export function DeviceCard({ info }: DeviceCardProps) {
       </div>
 
       {connected && info.support === "expected" && (
-        <div className="dd-dpi-support-note">{t("device.notTested")}</div>
+        <div className="dd-dpi-support-note dd-dpi-support-note--compact">
+          {t("device.notTested")}
+        </div>
       )}
       {connected && info.support === "recognized" && (
         <div className="dd-dpi-support-note">{t("device.recognized", { brand: info.brand })}</div>

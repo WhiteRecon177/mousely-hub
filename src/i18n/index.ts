@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { getStorageItemWithMigration } from "../services/storage";
 import { en, type Key } from "./locales/en";
 import { it } from "./locales/it";
 import { es } from "./locales/es";
@@ -24,7 +25,8 @@ export const LANGUAGES: { code: Lang; name: string }[] = [
 ];
 
 const DICTS: Record<Lang, Record<Key, string>> = { en, it, es, de, fr, pt, ru, zh };
-const STORAGE_KEY = "devicedeck.language";
+const STORAGE_KEY = "mousely-hub.language";
+const LEGACY_STORAGE_KEY = "devicedeck.language";
 
 function isLang(value: unknown): value is Lang {
   return typeof value === "string" && value in DICTS;
@@ -32,12 +34,8 @@ function isLang(value: unknown): value is Lang {
 
 /** Saved choice, else the language of the system when we have it, else English. */
 function detect(): Lang {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (isLang(saved)) return saved;
-  } catch {
-    // storage not available
-  }
+  const saved = getStorageItemWithMigration(STORAGE_KEY, LEGACY_STORAGE_KEY);
+  if (isLang(saved)) return saved;
   const system = (typeof navigator !== "undefined" ? navigator.language : "en").slice(0, 2).toLowerCase();
   return isLang(system) ? system : "en";
 }

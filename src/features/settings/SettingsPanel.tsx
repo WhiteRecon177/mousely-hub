@@ -6,6 +6,7 @@ import { THEMES, setTheme, useTheme, type ThemeId } from "../../theme/theme";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from "./settingsStore";
 import { UpdateRow } from "../updater";
 import { loadRemapState, saveRemapState } from "../mouse/services/mouseStorage";
+import { clearMacros } from "../macros/services/macroStorage";
 import { syncRemap } from "../mouse/services/remapSync";
 import "./settings.css";
 
@@ -109,11 +110,7 @@ export function SettingsButton() {
   // Removes every saved macro and puts the buttons that used one back to normal.
   const deleteMacros = async () => {
     if (!confirm(t("settings.deleteMacrosConfirm"))) return;
-    try {
-      localStorage.removeItem("devicedeck.macros");
-    } catch {
-      // storage not available
-    }
+    clearMacros();
     const state = loadRemapState();
     const actions = { ...state.actions };
     for (const [button, action] of Object.entries(actions)) {

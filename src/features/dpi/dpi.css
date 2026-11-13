@@ -381,10 +381,15 @@
 /* ================= redesign: device panel + cards ================= */
 .dd-dpi-page {
   grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-  gap: 18px;
+  grid-template-rows: minmax(0, 1fr);
+  gap: clamp(12px, 1.8vw, 18px);
   max-width: 1320px;
-  padding: 18px 20px;
+  height: calc(100vh - var(--dd-top));
+  height: calc(100dvh - var(--dd-top));
+  min-height: 0;
+  padding: clamp(12px, 2dvh, 18px) clamp(14px, 1.8vw, 20px);
   align-items: stretch;
+  overflow: hidden;
 }
 
 .dd-micro {
@@ -406,19 +411,20 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
-  padding: 22px 26px 22px;
+  padding: clamp(14px, 2.6dvh, 22px) clamp(16px, 2.2vw, 26px);
   background-color: var(--card);
   border: 1px solid var(--border);
   border-radius: 22px;
   box-shadow: var(--card-shadow);
   backdrop-filter: blur(10px);
-  overflow: hidden;
+  overflow: clip;
 }
 
 .dd-dev-panel::before {
   content: "";
   position: absolute;
   inset: 0;
+  border-radius: inherit;
   background: radial-gradient(60% 55% at 50% 48%, color-mix(in srgb, var(--holo) 22%, transparent), transparent 70%);
   pointer-events: none;
 }
@@ -442,6 +448,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-top: 8px;
 }
 
@@ -455,9 +463,16 @@
   min-height: 0;
 }
 
+.dd-dev-panel .dd-dpi-mouse {
+  margin: 8px 0;
+}
+
 .dd-dev-panel .dd-dpi-mouse .dd-mouse {
-  height: min(430px, calc(100vh - 330px));
-  min-height: 220px;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
 }
 
 .dd-dev-foot {
@@ -465,25 +480,42 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  margin-bottom: 6px;
+  min-width: 0;
+  margin-bottom: 4px;
 }
 
 .dd-dev-name {
-  font-size: 22px;
+  font-size: clamp(18px, 2.8dvh, 22px);
   font-weight: 700;
+  line-height: 1.15;
   letter-spacing: 0.01em;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 /* ---- right column ---- */
 .dd-dpi-right {
-  justify-content: space-between;
-  gap: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: clamp(8px, 1.5dvh, 12px);
+  min-height: 0;
+  min-width: 0;
+  padding: 2px 4px 2px 2px;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.dd-dpi-right > * {
+  flex: none;
 }
 
 .dd-dpi-card {
   border-radius: 22px;
-  padding: 18px 22px;
+  padding: clamp(11px, 1.8dvh, 16px) clamp(14px, 1.8vw, 22px);
 }
 
 .dd-dpi-card:first-child::before,
@@ -496,7 +528,7 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: clamp(6px, 1.4dvh, 12px);
 }
 
 .dd-card-title {
@@ -507,19 +539,20 @@
 
 /* status strip */
 .dd-status {
-  padding: 16px 0;
+  padding: clamp(10px, 1.5dvh, 14px) 0;
 }
 
 .dd-status-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.1fr);
 }
 
 .dd-st-cell {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 2px 22px;
+  gap: 6px;
+  padding: 2px clamp(14px, 1.8vw, 22px);
   border-left: 1px solid var(--border);
 }
 
@@ -530,16 +563,20 @@
 .dd-st-value {
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 18px;
+  gap: 8px;
+  min-width: 0;
+  font-size: clamp(15px, 2.3dvh, 18px);
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .dd-st-icon {
+  flex: none;
   color: var(--holo);
 }
 
 .dd-st-dot {
+  flex: none;
   width: 10px;
   height: 10px;
   border-radius: 50%;
@@ -559,8 +596,8 @@
 .dd-st-pct {
   position: absolute;
   top: 0;
-  right: 22px;
-  font-size: 26px;
+  right: clamp(14px, 1.8vw, 22px);
+  font-size: clamp(22px, 3.2dvh, 26px);
   font-weight: 500;
   line-height: 1;
 }
@@ -589,13 +626,56 @@
 }
 
 .dd-status .dd-dpi-support-note {
-  margin: 12px 22px 0;
+  margin: 8px clamp(14px, 1.8vw, 22px) 0;
+  padding: 6px 10px;
   font-size: 12px;
+  line-height: 1.35;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--card-2) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
 }
 
-/* DPI card: mini ring gauge + 2x2 Bento stage grid + custom DPI card */
-.dd-dpi-main {
-  flex: 1;
+.dd-status .dd-dpi-support-note--compact {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: calc(100% - 2 * clamp(14px, 1.8vw, 22px));
+  padding: 4px 10px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  border-radius: 999px;
+  border-color: color-mix(in srgb, var(--warn) 32%, var(--border));
+}
+
+.dd-dpi-readonly {
+  margin-bottom: clamp(8px, 1.2dvh, 10px);
+  padding: 5px 10px;
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--card-2) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+
+.dd-dpi-notice {
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow-wrap: anywhere;
+}
+
+/* DPI card: mini ring gauge + stage grid + custom DPI card */
+.dd-dpi-right > .dd-dpi-main {
+  flex: 1 0 auto;
+  container: dpi-main / inline-size;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -611,9 +691,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: clamp(134px, 24vh, 174px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: clamp(14px, 2.2vw, 24px);
+  grid-template-columns: minmax(118px, clamp(118px, 21dvh, 166px)) minmax(0, 1fr);
+  grid-template-rows: minmax(min-content, 1fr);
+  gap: clamp(12px, 2vw, 22px);
   align-items: stretch;
 }
 
@@ -626,8 +706,8 @@
 
 .dd-ring {
   position: relative;
-  width: clamp(134px, 24vh, 174px);
-  height: clamp(134px, 24vh, 174px);
+  width: clamp(118px, 21dvh, 166px);
+  height: clamp(118px, 21dvh, 166px);
 }
 
 .dd-ring-svg {
@@ -662,7 +742,7 @@
 }
 
 .dd-ring-value {
-  font-size: clamp(26px, 5.2vh, 38px);
+  font-size: clamp(22px, 4.4dvh, 36px);
   font-weight: 500;
   line-height: 1;
   letter-spacing: 0.01em;
@@ -672,7 +752,7 @@
 .dd-ring-unit {
   margin-top: 5px;
   font-family: ui-monospace, Consolas, monospace;
-  font-size: clamp(9px, 1.35vh, 10.5px);
+  font-size: clamp(9px, 1.35dvh, 10.5px);
   letter-spacing: 0.28em;
   color: var(--holo-2);
 }
@@ -682,21 +762,21 @@
 }
 
 .dd-dpi-stack {
+  container: dpi-stack / inline-size;
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1.4vh, 12px);
+  gap: clamp(8px, 1.3dvh, 12px);
   min-width: 0;
-  min-height: 0;
+  min-height: min-content;
 }
 
 .dd-stage-list {
-  flex: 1;
+  flex: 1 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  grid-auto-rows: minmax(0, 1fr);
-  gap: clamp(8px, 1.4vh, 12px);
+  grid-auto-rows: minmax(50px, 1fr);
+  gap: clamp(6px, 1.2dvh, 10px);
   min-inline-size: 0;
-  min-block-size: 0;
 }
 
 .dd-stage-list--3col {
@@ -705,12 +785,14 @@
 
 .dd-stage-list--4col {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: clamp(6px, 1vh, 10px);
+  gap: clamp(6px, 1dvh, 9px);
 }
 
 .dd-stage-list--scroll {
-  grid-auto-rows: auto;
+  flex: 0 1 auto;
+  grid-auto-rows: minmax(50px, auto);
   align-content: start;
+  max-block-size: clamp(164px, 28dvh, 220px);
   /* Extra bleed keeps active glow shadows unclipped inside the scrollport. */
   padding: 6px;
   margin: -6px;
@@ -723,13 +805,13 @@
 
 .dd-stage-row {
   min-inline-size: 0;
-  min-block-size: 0;
+  min-block-size: 50px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   align-items: stretch;
   gap: 4px;
-  padding: clamp(8px, 1.4vh, 12px) clamp(12px, 1.4vw, 15px);
+  padding: clamp(7px, 1.2dvh, 11px) clamp(11px, 1.3vw, 14px);
   font: inherit;
   color: var(--text);
   background: color-mix(in srgb, var(--card-2) 55%, transparent);
@@ -741,11 +823,11 @@
 }
 
 .dd-stage-list--3col .dd-stage-row {
-  padding: clamp(8px, 1.3vh, 11px) clamp(10px, 1.1vw, 13px);
+  padding: clamp(7px, 1.1dvh, 10px) clamp(9px, 1vw, 12px);
 }
 
 .dd-stage-list--4col .dd-stage-row {
-  padding: clamp(7px, 1.1vh, 10px) 10px;
+  padding: clamp(6px, 1dvh, 9px) 9px;
 }
 
 .dd-stage-row:hover:not(:disabled) {
@@ -980,17 +1062,22 @@
 
 /* polling tiles */
 .dd-poll-grid {
+  container: poll-grid / inline-size;
+  --gap: clamp(6px, 1.4cqi, 12px);
+  --tw: calc((100cqi - (var(--n, 4) - 1) * var(--gap)) / var(--n, 4));
   display: grid;
-  gap: 12px;
+  grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr));
+  gap: var(--gap);
 }
 
 .dd-poll-tile {
+  min-width: 0;
+  min-block-size: 54px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 16px;
-  min-height: 92px;
-  padding: 14px 16px;
+  gap: clamp(6px, 1.4dvh, 14px);
+  padding: clamp(8px, 1.4dvh, 12px) clamp(8px, calc(var(--tw) * 0.08), 16px);
   font: inherit;
   color: var(--text);
   text-align: left;
@@ -1000,25 +1087,38 @@
   cursor: pointer;
 }
 
-.dd-poll-tile:hover {
+.dd-poll-tile:hover:not(:disabled) {
   border-color: var(--holo);
 }
 
+.dd-poll-tile:focus-visible,
+.dd-dpi-ghost:focus-visible,
+.dd-dpi-diag-summary:focus-visible {
+  outline: 2px solid var(--holo);
+  outline-offset: 2px;
+}
+
 .dd-poll-hz {
-  font-size: 28px;
+  font-size: clamp(16px, calc(var(--tw) * 0.21), 26px);
   font-weight: 300;
   line-height: 1;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
 .dd-poll-hz small {
-  margin-left: 3px;
-  font-size: 12px;
+  margin-left: 0.14em;
+  font-size: 0.44em;
   color: var(--muted);
 }
 
+.dd-poll-ms {
+  font-size: clamp(9.5px, calc(var(--tw) * 0.14), 10.5px);
+  white-space: nowrap;
+}
+
 .dd-poll-tile--active,
-.dd-poll-tile--active:hover {
+.dd-poll-tile--active:hover:not(:disabled) {
   background: var(--grad);
   border-color: transparent;
   box-shadow: var(--accent-glow);
@@ -1027,12 +1127,14 @@
 .dd-poll-tile--active .dd-poll-hz,
 .dd-poll-tile--active .dd-poll-hz small,
 .dd-poll-tile--active .dd-poll-ms {
-  color: #fff;
+  color: var(--on-accent);
 }
 
 /* footer */
 .dd-dpi-footer {
-  padding: 0 2px;
+  flex: none;
+  margin-block-start: auto;
+  padding: 2px 2px 0;
 }
 
 .dd-dpi-footer .dd-dpi-status {
@@ -1040,94 +1142,189 @@
 }
 
 .dd-dpi-footer .dd-dpi-ghost {
-  padding: 9px 18px;
+  padding: clamp(6px, 1.3dvh, 9px) 16px;
   font-size: 13px;
+  white-space: nowrap;
   background: var(--card);
   border: 1px solid var(--border);
 }
 
 .dd-dpi-diag-summary {
-  padding: 9px 18px;
+  padding: clamp(6px, 1.3dvh, 9px) 16px;
   font-size: 13px;
+  white-space: nowrap;
   border-radius: 999px;
 }
 
-/* ---- fit the window: no scrolling, everything scales with the height ---- */
-.dd-dpi-page {
-  height: calc(100vh - var(--dd-top));
-  min-height: 0;
-  overflow: hidden;
-  grid-template-rows: minmax(0, 1fr);
+/* ---- short viewport compression (keep before container queries so narrow cards still stack) ---- */
+@media (max-height: 690px) {
+  .dd-dpi-page {
+    gap: 12px;
+    padding: 10px 14px;
+  }
+
+  .dd-dev-panel {
+    padding: 12px 16px;
+  }
+
+  .dd-dev-name {
+    font-size: 19px;
+  }
+
+  .dd-dpi-right {
+    gap: 8px;
+  }
+
+  .dd-dpi-card {
+    padding: 10px 14px;
+  }
+
+  .dd-status {
+    padding: 8px 0;
+  }
+
+  .dd-card-head {
+    margin-bottom: 6px;
+  }
+
+  .dd-dpi-body {
+    grid-template-columns: minmax(112px, clamp(112px, 19dvh, 146px)) minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .dd-ring {
+    width: clamp(112px, 19dvh, 146px);
+    height: clamp(112px, 19dvh, 146px);
+  }
+
+  .dd-poll-tile {
+    min-block-size: 48px;
+    gap: 6px;
+    padding: 7px 10px;
+  }
 }
 
-.dd-dev-panel {
-  min-height: 0;
-  padding: clamp(14px, 3vh, 22px) clamp(16px, 2.4vw, 26px);
+/* ---- container-driven adaptations ---- */
+@container dpi-main (inline-size < 450px) {
+  .dd-dpi-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 12px;
+  }
+
+  .dd-ring {
+    width: 116px;
+    height: 116px;
+  }
+
+  .dd-ring-value {
+    font-size: 24px;
+  }
 }
 
-.dd-dev-panel .dd-dpi-mouse {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  margin: 8px 0;
+@container dpi-stack (inline-size < 370px) {
+  .dd-stage-list--4col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dd-stage-list--4col .dd-stage-val {
+    font-size: clamp(15px, 2.3dvh, 20px);
+  }
 }
 
-.dd-dev-panel .dd-dpi-mouse .dd-mouse {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+@container dpi-stack (inline-size < 290px) {
+  .dd-stage-list--3col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.dd-dpi-right {
-  min-height: 0;
-  gap: clamp(8px, 1.8vh, 14px);
+@container dpi-stack (inline-size < 250px) {
+  .dd-custom-controls {
+    flex-wrap: wrap;
+  }
+
+  .dd-custom-apply {
+    width: 100%;
+  }
 }
 
-.dd-dpi-card {
-  padding: clamp(10px, 2vh, 18px) clamp(14px, 1.8vw, 22px);
+@container poll-grid (inline-size < 590px) {
+  .dd-poll-grid[data-count="7"],
+  .dd-poll-grid[data-count="8"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    --tw: calc((100cqi - 3 * var(--gap)) / 4);
+  }
 }
 
-.dd-status { padding: clamp(10px, 1.8vh, 16px) 0; }
-
-.dd-card-head { margin-bottom: clamp(6px, 1.6vh, 14px); }
-
-.dd-poll-tile {
-  min-height: 0;
-  gap: clamp(6px, 1.8vh, 16px);
-  padding: clamp(8px, 1.6vh, 14px) 16px;
+@container poll-grid (inline-size < 470px) {
+  .dd-poll-grid[data-count="5"],
+  .dd-poll-grid[data-count="6"] {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    --tw: calc((100cqi - 2 * var(--gap)) / 3);
+  }
 }
 
-.dd-poll-hz { font-size: clamp(20px, 4vh, 28px); }
+@container poll-grid (inline-size < 340px) {
+  .dd-poll-grid[data-count="3"],
+  .dd-poll-grid[data-count="4"],
+  .dd-poll-grid[data-count="5"],
+  .dd-poll-grid[data-count="6"],
+  .dd-poll-grid[data-count="7"],
+  .dd-poll-grid[data-count="8"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    --tw: calc((100cqi - var(--gap)) / 2);
+  }
+}
 
-.dd-dpi-footer { flex: none; }
+/* ---- narrow viewport fallbacks ---- */
 
-.dd-dpi-footer .dd-dpi-ghost,
-.dd-dpi-diag-summary { white-space: nowrap; padding: clamp(6px, 1.4vh, 9px) 16px; }
+@media (max-width: 900px) {
+  .dd-dpi-page {
+    height: auto;
+    min-height: calc(100vh - var(--dd-top));
+    min-height: calc(100dvh - var(--dd-top));
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
 
-/* polling tiles: sizes follow the grid width, so many rates (up to 8000 Hz) always fit */
-.dd-poll-grid {
-  --gap: clamp(6px, 1.4cqw, 12px);
-  --tw: calc((100cqw - (var(--n, 4) - 1) * var(--gap)) / var(--n, 4));
-  container-type: inline-size;
-  display: grid;
-  gap: var(--gap);
+  .dd-dev-panel .dd-dpi-mouse {
+    min-height: 150px;
+    height: 180px;
+  }
+
+  .dd-dpi-right {
+    overflow: visible;
+    padding: 0;
+  }
+
+  .dd-dpi-right > .dd-dpi-main {
+    flex: none;
+  }
+
+  .dd-dpi-footer {
+    flex-wrap: wrap;
+  }
 }
-.dd-poll-tile {
-  min-width: 0;
-  padding: clamp(8px, 1.6vh, 14px) clamp(8px, calc(var(--tw) * 0.08), 16px);
-  overflow: hidden;
-}
-.dd-poll-hz {
-  font-size: min(28px, calc(var(--tw) * 0.215));
-  white-space: nowrap;
-}
-.dd-poll-hz small {
-  margin-left: 0.12em;
-  font-size: 0.42em;
-}
-.dd-poll-ms {
-  font-size: min(10px, calc(var(--tw) * 0.15));
-  white-space: nowrap;
+
+@media (max-width: 560px) {
+  .dd-status-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dd-st-cell {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    padding: 8px 16px;
+  }
+
+  .dd-st-cell:first-child {
+    border-top: 0;
+  }
+
+  .dd-st-pct {
+    top: 8px;
+    right: 16px;
+  }
 }
