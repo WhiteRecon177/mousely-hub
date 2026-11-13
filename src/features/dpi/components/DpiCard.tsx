@@ -77,6 +77,14 @@ export function DpiCard({
       ? Math.min(1, Math.max(0, Math.log(Math.max(dpi, lo) / lo) / Math.log(info.dpiMax / lo)))
       : 0;
   const fmt = (n: number): string => n.toLocaleString("en-US").replace(/,/g, " ");
+  // Keep 5-8 hardware levels inside 2 balanced rows (3 cols for 5-6, 4 cols for 7-8) so no scrollbar appears.
+  const stageListClass = [
+    "dd-stage-list",
+    stages.length > 6 ? "dd-stage-list--4col" : stages.length > 4 ? "dd-stage-list--3col" : "",
+    stages.length > 8 ? "dd-stage-list--scroll" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="dd-dpi-card dd-dpi-main">
@@ -111,7 +119,7 @@ export function DpiCard({
 
         <div className="dd-dpi-stack">
           <div
-            className={stages.length > 4 ? "dd-stage-list dd-stage-list--many" : "dd-stage-list"}
+            className={stageListClass}
             title={fromDevice ? t("dpi.levelsFromMouse") : undefined}
           >
             {stages.map((stage, index) => (

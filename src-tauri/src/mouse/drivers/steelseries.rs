@@ -27,7 +27,7 @@ use std::sync::Mutex;
 
 use super::readonly::{self, Reading};
 use super::MouseDriver;
-use crate::mouse::MouseInfoDto;
+use crate::mouse::{MouseInfoDto, SupportLevel};
 
 const STEELSERIES_VID: u16 = 0x1038;
 const CMD_BATTERY: u8 = 0x92;
@@ -339,6 +339,10 @@ fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> Mous
         info.dpi_levels = Vec::new();
     }
 
+    if model.pid == 0x1836 {
+        info.support = SupportLevel::Tested;
+    }
+
     info
 }
 
@@ -590,6 +594,7 @@ mod tests {
         assert_eq!(info.dpi, START_DPI);
         assert_eq!((info.dpi_min, info.dpi_max, info.dpi_step), (100, 18000, 100));
         assert!(info.dpi_levels.is_empty());
+        assert!(matches!(info.support, SupportLevel::Expected));
         assert_eq!(info.polling_supported, vec![125, 250, 500, 1000]);
 
         // Aerox 3 Wired: no battery, TrueMove Core range 200..=8500.
@@ -603,6 +608,7 @@ mod tests {
         assert!(wired_info.capabilities.polling_read && wired_info.capabilities.polling_write);
         assert_eq!(wired_info.dpi, START_DPI);
         assert_eq!((wired_info.dpi_min, wired_info.dpi_max, wired_info.dpi_step), (200, 8500, 100));
+        assert!(matches!(wired_info.support, SupportLevel::Tested));
         assert_eq!(wired_info.polling_supported, vec![125, 250, 500, 1000]);
     }
 }
