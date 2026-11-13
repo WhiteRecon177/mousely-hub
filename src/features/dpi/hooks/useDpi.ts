@@ -4,34 +4,9 @@ import { listen } from "@tauri-apps/api/event";
 import { dpiApi, type ProbeResult } from "../services/dpiApi";
 import { translate } from "../../../i18n";
 
-const STORAGE_KEY = "devicedeck.dpi.stages";
-const DEFAULT_STAGES = [400, 800, 1600, 3200, 6400];
-const MAX_STAGES = 6;
+const DEFAULT_STAGES = [400, 800, 1600, 3200];
 const DEFAULT_DPI = 800;
 const DEFAULT_POLLING = 1000;
-
-function loadStages(): number[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_STAGES;
-    const parsed: unknown = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const numbers = parsed.filter((v): v is number => typeof v === "number");
-      if (numbers.length > 0) return numbers;
-    }
-  } catch {
-    // ignore, use defaults
-  }
-  return DEFAULT_STAGES;
-}
-
-function saveStages(stages: number[]): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stages));
-  } catch {
-    // storage not available
-  }
-}
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -46,7 +21,6 @@ export function useDpi() {
   const cached = dpiApi.cached();
   const [info, setInfo] = useState<MouseInfo | null>(() => (cached ? cached.info : null));
   const [dpi, setDpi] = useState<number>(() => (cached ? cached.info.dpi : DEFAULT_DPI));
-  const [stages, setStages] = useState<number[]>(() => loadStages());
   const [status, setStatus] = useState<string>("");
   const [error, setError] = useState<boolean>(false);
   const [diagnostics, setDiagnostics] = useState<string[]>(() => (cached ? cached.diagnostics : []));
@@ -172,23 +146,6 @@ export function useDpi() {
     [info, apply]
   );
 
-  const addStage = useCallback(() => {
-    if (stages.includes(dpi) || stages.length >= MAX_STAGES) return;
-    const next = [...stages, dpi].sort((a, b) => a - b);
-    setStages(next);
-    saveStages(next);
-  }, [stages, dpi]);
-
-  const removeStage = useCallback(
-    (value: number) => {
-      if (stages.length <= 1) return;
-      const next = stages.filter((s) => s !== value);
-      setStages(next);
-      saveStages(next);
-    },
-    [stages]
-  );
-
   const setPolling = useCallback(
     async (hz: number) => {
       if (!info || busy.current || hz === info.pollingRate) return;
@@ -239,13 +196,11 @@ export function useDpi() {
   return {
     info,
     dpi,
-    stages,
+    stages: DEFAULT_STAGES,
     status,
     error,
     setDpiLive,
     selectStage,
-    addStage,
-    removeStage,
     setPolling,
     resetToDefault,
     diagnostics,

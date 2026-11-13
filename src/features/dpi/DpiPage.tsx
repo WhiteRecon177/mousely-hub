@@ -101,10 +101,7 @@ export function DpiPage() {
                 stages={info.dpiLevels.length > 0 ? info.dpiLevels : dpi.stages}
                 fromDevice={info.dpiLevels.length > 0}
                 disabled={!DPI_WRITE_ENABLED || !info.capabilities.dpiWrite}
-                onChange={dpi.setDpiLive}
                 onSelectStage={dpi.selectStage}
-                onAddStage={dpi.addStage}
-                onRemoveStage={dpi.removeStage}
               />
             ) : (
               <div className="dd-dpi-muted">{t("mouse.dpiRangeUnknown")}</div>

@@ -204,11 +204,11 @@ export function SettingsButton() {
             <button type="button" className="dd-set-btn" onClick={copyInfo}>
               {t("settings.copyInfo")}
             </button>
-            <button type="button" className="dd-set-btn dd-set-btn--ghost" onClick={deleteMacros}>
-              {t("settings.deleteMacros")}
-            </button>
             <button type="button" className="dd-set-btn dd-set-btn--ghost" onClick={reset}>
               {t("settings.reset")}
+            </button>
+            <button type="button" className="dd-set-btn dd-set-btn--danger" onClick={deleteMacros}>
+              {t("settings.deleteMacros")}
             </button>
           </div>
 
