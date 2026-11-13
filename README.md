@@ -79,7 +79,8 @@ Requirements: Windows 10 or 11 (64-bit, with the Microsoft Edge WebView2 Runtime
 | Brand | Status |
 |---|---|
 | Logitech (HID++ 2.0, LIGHTSPEED) | **Working** (tested): DPI, polling rate, battery |
-| SteelSeries Aerox 3 (cable) and Aerox 3 / 5 / 9 Wireless | **Experimental**: battery (wireless), DPI and polling rate (write) |
+| SteelSeries Aerox 3 (cable) | **Working** (tested): DPI and polling rate (write) |
+| SteelSeries Aerox 3 / 5 / 9 Wireless | **Experimental**: battery, DPI and polling rate (write) |
 | SteelSeries Sensei Ten (cable) | **Experimental**: DPI and polling rate (write) |
 | HyperX Pulsefire Dart | **Experimental**: battery, DPI (read and write), polling rate (write) |
 | Pulsar X3, X3 LHD (cable) | **Experimental**: battery, DPI and polling rate (read and write) |

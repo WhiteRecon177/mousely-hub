@@ -4,7 +4,7 @@
 //! * battery question: the MIT-licensed project "OpenSeries" (crate `openseries-gg` 1.0.0);
 //! * DPI and polling commands, DPI code tables (TrueMove Air and TrueMove Core), Aerox ids:
 //!   the project "rivalcfg" by Fabien Loison (flozz), licence WTFPL, version 4.17.0.
-//! Not tested on real hardware by us: the support level is "expected".
+//! Tested on real hardware: SteelSeries Aerox 3 wired (`1038:1836`); wireless models are "expected".
 //!
 //! Every message is one output report: report id `00` followed by the command. Through the
 //! 2.4 GHz receiver the command byte gets bit 0x40 set (`92` -> `D2`, `2D` -> `6D`, `2B` -> `6B`)

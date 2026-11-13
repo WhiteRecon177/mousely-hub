@@ -52,7 +52,7 @@ For the wired Aerox 3 (`1038:1836`, TrueMove Core, no battery), it sends one DPI
 The "save to the mouse memory" command is **never** sent, so the settings last until the mouse is
 switched off; lighting, buttons, sleep timer, pairing, firmware and reset are never touched.
 The mouse cannot be asked for its DPI or polling rate, so the app shows the last value it wrote.
-Not tested on real hardware by us ("expected"). Wired Aerox 5 has no battery and is not handled.
+Aerox 3 wired (`1038:1836`) has been tested on real hardware (DPI and polling rate write). Wireless models are not tested on real hardware by us ("expected"). Wired Aerox 5 has no battery and is not handled.
 
 Still not done (no verified permissive source): Aerox 3 Wireless Gen 2, other Attack Shark
 models, Microsoft, Roccat, Razer.
