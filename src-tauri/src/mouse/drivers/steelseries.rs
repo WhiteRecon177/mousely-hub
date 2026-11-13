@@ -1,19 +1,21 @@
-//! SteelSeries Aerox 3 / 5 / 9 Wireless: battery, DPI and polling rate.
+//! SteelSeries Aerox 3 (cable) and Aerox 3 / 5 / 9 Wireless: battery (wireless), DPI and polling rate.
 //!
 //! Sources (only facts are used, the code is written from scratch):
 //! * battery question: the MIT-licensed project "OpenSeries" (crate `openseries-gg` 1.0.0);
-//! * DPI and polling commands, DPI code table, Aerox 9 ids: the project "rivalcfg" by Fabien
-//!   Loison (flozz), licence WTFPL, version 4.17.0.
+//! * DPI and polling commands, DPI code tables (TrueMove Air and TrueMove Core), Aerox ids:
+//!   the project "rivalcfg" by Fabien Loison (flozz), licence WTFPL, version 4.17.0.
 //! Not tested on real hardware by us: the support level is "expected".
 //!
 //! Every message is one output report: report id `00` followed by the command. Through the
 //! 2.4 GHz receiver the command byte gets bit 0x40 set (`92` -> `D2`, `2D` -> `6D`, `2B` -> `6B`)
 //! and the receiver answers every write with one 64 byte report, which is read and dropped.
 //!
-//! * battery: `92`; answer: bit 7 of the 2nd byte = charging, bits 0..6 = step 1..21
+//! * battery (wireless models only): `92`; answer: bit 7 of the 2nd byte = charging, bits 0..6 = step 1..21
 //!   (percent = (step - 1) * 5). A step outside 1..21 means "mouse not connected".
-//! * DPI: `2D, count, selected, code...` (we send one preset: `2D 01 00 code`).
-//! * polling: `2B, code` with 125 Hz = 3, 250 Hz = 2, 500 Hz = 1, 1000 Hz = 0.
+//! * DPI: `2D, count, selected, code...` (`2D 01 00 code` for TrueMove Air wireless models,
+//!   `2D 01 01 code` with 1-based preset and TrueMove Core table for wired Aerox 3).
+//! * polling: `2B, code` with `[3, 2, 1, 0]` for `[125, 250, 500, 1000]` Hz on wireless models,
+//!   and `[4, 3, 2, 1]` on wired Aerox 3.
 //!
 //! Never sent: the "save to the mouse memory" command, lighting, buttons, sleep timer, pairing,
 //! firmware or reset commands. The settings are therefore lost when the mouse is switched off,
@@ -31,40 +33,32 @@ const STEELSERIES_VID: u16 = 0x1038;
 const CMD_BATTERY: u8 = 0x92;
 const RECEIVER_FLAG: u8 = 0x40;
 
+struct SensorProfile {
+    dpi_min: u32,
+    dpi_max: u32,
+    dpi_codes: &'static [u8],
+    first_preset: u8,
+    /// Polling codes for [125, 250, 500, 1000] Hz.
+    polling_codes: [u8; 4],
+}
+
 struct Model {
     pid: u16,
     name: &'static str,
     /// 2.4 GHz receiver (the question must use the receiver form of the command)
     receiver: bool,
+    has_battery: bool,
+    profile: &'static SensorProfile,
 }
-
-const MODELS: [Model; 14] = [
-    Model { pid: 0x1838, name: "SteelSeries Aerox 3 Wireless", receiver: true },
-    Model { pid: 0x183A, name: "SteelSeries Aerox 3 Wireless", receiver: false },
-    Model { pid: 0x1878, name: "SteelSeries Aerox 3 Wireless CS2 Dragon Lore Edition", receiver: true },
-    Model { pid: 0x187A, name: "SteelSeries Aerox 3 Wireless CS2 Dragon Lore Edition", receiver: false },
-    Model { pid: 0x1852, name: "SteelSeries Aerox 5 Wireless", receiver: true },
-    Model { pid: 0x1854, name: "SteelSeries Aerox 5 Wireless", receiver: false },
-    Model { pid: 0x185C, name: "SteelSeries Aerox 5 Wireless Destiny 2 Edition", receiver: true },
-    Model { pid: 0x185E, name: "SteelSeries Aerox 5 Wireless Destiny 2 Edition", receiver: false },
-    Model { pid: 0x1860, name: "SteelSeries Aerox 5 Wireless Diablo IV Edition", receiver: true },
-    Model { pid: 0x1862, name: "SteelSeries Aerox 5 Wireless Diablo IV Edition", receiver: false },
-    Model { pid: 0x1858, name: "SteelSeries Aerox 9 Wireless", receiver: true },
-    Model { pid: 0x185A, name: "SteelSeries Aerox 9 Wireless", receiver: false },
-    Model { pid: 0x1874, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: true },
-    Model { pid: 0x1876, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: false },
-];
 
 const CMD_DPI: u8 = 0x2D;
 const CMD_POLLING: u8 = 0x2B;
-const DPI_MIN: u32 = 100;
-const DPI_MAX: u32 = 18000;
 const DPI_STEP: u32 = 100;
 /// Shown before the user picks a DPI (the mouse cannot tell its real value).
 const START_DPI: u32 = 800;
 const POLLING_HZ: [u32; 4] = [125, 250, 500, 1000];
 
-/// Sensor code of every DPI value from 100 to 18000 in steps of 100 (180 values).
+/// Sensor code of every DPI value from 100 to 18000 in steps of 100 (180 values, TrueMove Air).
 const DPI_CODES: [u8; 180] = [
     0x00, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x0A, 0x0B, 0x0C, 0x0D,
     0x0E, 0x10, 0x11, 0x12, 0x13, 0x14, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B,
@@ -83,6 +77,51 @@ const DPI_CODES: [u8; 180] = [
     0xC9, 0xCA, 0xCB, 0xCC, 0xCD, 0xCF, 0xD0, 0xD1, 0xD2, 0xD3, 0xD5, 0xD6,
 ];
 
+/// Sensor code of every DPI value from 200 to 8500 in steps of 100 (84 values, TrueMove Core).
+const TRUEMOVE_CORE_DPI_CODES: [u8; 84] = [
+    0x04, 0x06, 0x08, 0x0B, 0x0D, 0x0F, 0x12, 0x14, 0x16, 0x19, 0x1B, 0x1D,
+    0x20, 0x22, 0x24, 0x27, 0x29, 0x2B, 0x2E, 0x30, 0x32, 0x34, 0x37, 0x39,
+    0x3B, 0x3E, 0x40, 0x42, 0x45, 0x47, 0x49, 0x4C, 0x4E, 0x50, 0x53, 0x55,
+    0x57, 0x5A, 0x5C, 0x5E, 0x61, 0x63, 0x65, 0x68, 0x6A, 0x6C, 0x6F, 0x71,
+    0x73, 0x76, 0x78, 0x7A, 0x7D, 0x7F, 0x81, 0x84, 0x86, 0x88, 0x8B, 0x8D,
+    0x8F, 0x92, 0x94, 0x96, 0x99, 0x9B, 0x9D, 0xA0, 0xA2, 0xA4, 0xA7, 0xA9,
+    0xAB, 0xAD, 0xB0, 0xB2, 0xB4, 0xB7, 0xB9, 0xBC, 0xBE, 0xC0, 0xC3, 0xC5,
+];
+
+const WIRELESS_PROFILE: SensorProfile = SensorProfile {
+    dpi_min: 100,
+    dpi_max: 18000,
+    dpi_codes: &DPI_CODES,
+    first_preset: 0,
+    polling_codes: [0x03, 0x02, 0x01, 0x00],
+};
+
+const AEROX3_WIRED_PROFILE: SensorProfile = SensorProfile {
+    dpi_min: 200,
+    dpi_max: 8500,
+    dpi_codes: &TRUEMOVE_CORE_DPI_CODES,
+    first_preset: 1,
+    polling_codes: [0x04, 0x03, 0x02, 0x01],
+};
+
+const MODELS: [Model; 15] = [
+    Model { pid: 0x1836, name: "SteelSeries Aerox 3", receiver: false, has_battery: false, profile: &AEROX3_WIRED_PROFILE },
+    Model { pid: 0x1838, name: "SteelSeries Aerox 3 Wireless", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x183A, name: "SteelSeries Aerox 3 Wireless", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1878, name: "SteelSeries Aerox 3 Wireless CS2 Dragon Lore Edition", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x187A, name: "SteelSeries Aerox 3 Wireless CS2 Dragon Lore Edition", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1852, name: "SteelSeries Aerox 5 Wireless", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1854, name: "SteelSeries Aerox 5 Wireless", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x185C, name: "SteelSeries Aerox 5 Wireless Destiny 2 Edition", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x185E, name: "SteelSeries Aerox 5 Wireless Destiny 2 Edition", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1860, name: "SteelSeries Aerox 5 Wireless Diablo IV Edition", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1862, name: "SteelSeries Aerox 5 Wireless Diablo IV Edition", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1858, name: "SteelSeries Aerox 9 Wireless", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x185A, name: "SteelSeries Aerox 9 Wireless", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1874, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
+    Model { pid: 0x1876, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
+];
+
 /// What the app has written in this run; the mouse cannot be asked for its DPI.
 static LAST_DPI: Mutex<Option<u32>> = Mutex::new(None);
 static LAST_POLLING: Mutex<Option<u32>> = Mutex::new(None);
@@ -95,11 +134,12 @@ fn recall(slot: &Mutex<Option<u32>>) -> Option<u32> {
     *slot.lock().unwrap_or_else(|error| error.into_inner())
 }
 
-/// Nearest valid DPI (multiple of 100, 100..=18000) and its sensor code.
-pub fn dpi_code(value: u32) -> (u32, u8) {
-    let clamped = value.clamp(DPI_MIN, DPI_MAX);
-    let index = (((clamped + DPI_STEP / 2 - DPI_MIN) / DPI_STEP) as usize).min(179);
-    (DPI_MIN + index as u32 * DPI_STEP, DPI_CODES[index])
+/// Nearest valid DPI (multiple of 100 within the sensor profile) and its sensor code.
+fn dpi_code_for(profile: &SensorProfile, value: u32) -> (u32, u8) {
+    let clamped = value.clamp(profile.dpi_min, profile.dpi_max);
+    let max_idx = profile.dpi_codes.len() - 1;
+    let index = (((clamped + DPI_STEP / 2 - profile.dpi_min) / DPI_STEP) as usize).min(max_idx);
+    (profile.dpi_min + index as u32 * DPI_STEP, profile.dpi_codes[index])
 }
 
 fn with_flag(command: u8, receiver: bool) -> u8 {
@@ -111,21 +151,15 @@ fn with_flag(command: u8, receiver: bool) -> u8 {
 }
 
 /// The message that sets ONE DPI preset and selects it (without the report id).
-pub fn dpi_message(receiver: bool, value: u32) -> (u32, Vec<u8>) {
-    let (dpi, code) = dpi_code(value);
-    (dpi, vec![with_flag(CMD_DPI, receiver), 0x01, 0x00, code])
+fn dpi_message_for(profile: &SensorProfile, receiver: bool, value: u32) -> (u32, Vec<u8>) {
+    let (dpi, code) = dpi_code_for(profile, value);
+    (dpi, vec![with_flag(CMD_DPI, receiver), 0x01, profile.first_preset, code])
 }
 
 /// The message that sets the polling rate (without the report id).
-pub fn polling_message(receiver: bool, hz: u32) -> Option<Vec<u8>> {
-    let code = match hz {
-        125 => 0x03,
-        250 => 0x02,
-        500 => 0x01,
-        1000 => 0x00,
-        _ => return None,
-    };
-    Some(vec![with_flag(CMD_POLLING, receiver), code])
+fn polling_message_for(profile: &SensorProfile, receiver: bool, hz: u32) -> Option<Vec<u8>> {
+    let index = POLLING_HZ.iter().position(|&known| known == hz)?;
+    Some(vec![with_flag(CMD_POLLING, receiver), profile.polling_codes[index]])
 }
 
 fn model_for(pid: u16) -> Option<&'static Model> {
@@ -230,7 +264,7 @@ fn send(device: &HidDevice, message: &[u8], receiver: bool) -> Result<(), String
 }
 
 /// Opens the control interface of the first known SteelSeries mouse and sends one message.
-fn write_setting(build: impl Fn(bool) -> Vec<u8>) -> Result<(), String> {
+fn write_setting(build: impl Fn(&Model) -> Result<(u32, Vec<u8>), String>) -> Result<u32, String> {
     let api = HidApi::new().map_err(|error| error.to_string())?;
     let mut failure = String::from("SteelSeries mouse not found");
 
@@ -246,6 +280,8 @@ fn write_setting(build: impl Fn(bool) -> Vec<u8>) -> Result<(), String> {
             continue;
         }
 
+        let (applied, message) = build(model)?;
+
         let device = match info.open_device(&api) {
             Ok(device) => device,
             Err(error) => {
@@ -254,8 +290,8 @@ fn write_setting(build: impl Fn(bool) -> Vec<u8>) -> Result<(), String> {
             }
         };
 
-        match send(&device, &build(model.receiver), model.receiver) {
-            Ok(()) => return Ok(()),
+        match send(&device, &message, model.receiver) {
+            Ok(()) => return Ok(applied),
             Err(error) => failure = error,
         }
     }
@@ -263,7 +299,7 @@ fn write_setting(build: impl Fn(bool) -> Vec<u8>) -> Result<(), String> {
     Err(failure)
 }
 
-/// Aerox 3 / 5 / 9 Wireless have the same commands, so one driver covers them.
+/// Aerox 3 (cable) and Aerox 3 / 5 / 9 Wireless share the same 2D/2B command family.
 fn has_writes(model: &Model) -> bool {
     let _ = model;
     true
@@ -273,16 +309,16 @@ fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> Mous
     let mut info = readonly::build(Reading {
         brand: "SteelSeries",
         name: model.name.to_string(),
-        connection: if model.receiver { "wireless" } else { "unknown" },
-        battery,
-        charging,
+        connection: if model.receiver { "wireless" } else { "wired" },
+        battery: if model.has_battery { battery } else { None },
+        charging: model.has_battery && charging,
         dpi: recall(&LAST_DPI),
         polling: recall(&LAST_POLLING),
     });
 
     if has_writes(model) {
-        info.dpi_min = DPI_MIN;
-        info.dpi_max = DPI_MAX;
+        info.dpi_min = model.profile.dpi_min;
+        info.dpi_max = model.profile.dpi_max;
         info.dpi_step = DPI_STEP;
         info.polling_supported = POLLING_HZ.to_vec();
         info.polling_options = POLLING_HZ.to_vec();
@@ -295,7 +331,7 @@ fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> Mous
         info.capabilities.dpi_read = true;
         info.capabilities.polling_read = true;
         if info.dpi == 0 {
-            info.dpi = START_DPI;
+            info.dpi = START_DPI.clamp(model.profile.dpi_min, model.profile.dpi_max);
         }
         // the levels are the ones the user keeps in the app, not a single read-only one
         info.dpi_levels = Vec::new();
@@ -337,6 +373,17 @@ impl MouseDriver for SteelSeriesDriver {
                 continue;
             }
 
+            if !model.has_battery {
+                log.push(format!(
+                    "SteelSeries {:04X}:{:04X} interface {} usage_page={:04X}: wired model (no battery)",
+                    info.vendor_id(),
+                    info.product_id(),
+                    info.interface_number(),
+                    info.usage_page()
+                ));
+                return Some(describe(model, None, false));
+            }
+
             log.push(format!(
                 "SteelSeries {:04X}:{:04X} interface {} usage_page={:04X}: asking the battery",
                 info.vendor_id(),
@@ -369,17 +416,21 @@ impl MouseDriver for SteelSeriesDriver {
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
-        if polling_message(false, hz).is_none() {
-            return Err(format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz));
-        }
-        write_setting(|receiver| polling_message(receiver, hz).unwrap_or_default())?;
-        remember(&LAST_POLLING, hz);
-        Ok(hz)
+        let applied = write_setting(|model| {
+            let msg = polling_message_for(model.profile, model.receiver, hz).ok_or_else(|| {
+                format!(
+                    "{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)",
+                    hz
+                )
+            })?;
+            Ok((hz, msg))
+        })?;
+        remember(&LAST_POLLING, applied);
+        Ok(applied)
     }
 
     fn set_dpi(&self, value: u32) -> Result<u32, String> {
-        let (applied, _) = dpi_message(false, value);
-        write_setting(|receiver| dpi_message(receiver, value).1)?;
+        let applied = write_setting(|model| Ok(dpi_message_for(model.profile, model.receiver, value)))?;
         remember(&LAST_DPI, applied);
         Ok(applied)
     }
@@ -443,50 +494,85 @@ mod tests {
 
     #[test]
     fn ids_are_known() {
+        assert!(model_for(0x1836).is_some());
+        assert!(!model_for(0x1836).unwrap().has_battery);
         assert!(model_for(0x1838).is_some());
         assert!(model_for(0x185A).is_some() && !model_for(0x185A).unwrap().receiver);
         assert!(model_for(0x1858).unwrap().receiver);
-        assert!(model_for(0x1836).is_none()); // wired Aerox 3: no battery, not handled
         assert!(model_for(0x1234).is_none());
     }
 
     #[test]
     fn dpi_table_matches_rivalcfg_samples() {
-        assert_eq!(dpi_code(100), (100, 0x00));
-        assert_eq!(dpi_code(200), (200, 0x02));
-        assert_eq!(dpi_code(400), (400, 0x04));
-        assert_eq!(dpi_code(800), (800, 0x09));
-        assert_eq!(dpi_code(1600), (1600, 0x12));
-        assert_eq!(dpi_code(18000), (18000, 0xD6));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 100), (100, 0x00));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 200), (200, 0x02));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 400), (400, 0x04));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 800), (800, 0x09));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 1600), (1600, 0x12));
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 18000), (18000, 0xD6));
         assert_eq!(DPI_CODES.len(), 180);
         // strictly increasing codes
         assert!(DPI_CODES.windows(2).all(|pair| pair[0] < pair[1]));
+
+        // TrueMove Core (Aerox 3 wired)
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 200), (200, 0x04));
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 800), (800, 0x12));
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 1600), (1600, 0x24));
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 8500), (8500, 0xC5));
+        assert_eq!(TRUEMOVE_CORE_DPI_CODES.len(), 84);
+        assert!(TRUEMOVE_CORE_DPI_CODES.windows(2).all(|pair| pair[0] < pair[1]));
     }
 
     #[test]
     fn dpi_is_rounded_and_clamped() {
-        assert_eq!(dpi_code(0).0, 100);
-        assert_eq!(dpi_code(449).0, 400);
-        assert_eq!(dpi_code(450).0, 500);
-        assert_eq!(dpi_code(99999).0, 18000);
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 0).0, 100);
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 449).0, 400);
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 450).0, 500);
+        assert_eq!(dpi_code_for(&WIRELESS_PROFILE, 99999).0, 18000);
+
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 0).0, 200);
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 449).0, 400);
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 450).0, 500);
+        assert_eq!(dpi_code_for(&AEROX3_WIRED_PROFILE, 99999).0, 8500);
     }
 
     #[test]
     fn dpi_and_polling_messages() {
-        assert_eq!(dpi_message(false, 800), (800, vec![0x2D, 0x01, 0x00, 0x09]));
-        assert_eq!(dpi_message(true, 800), (800, vec![0x6D, 0x01, 0x00, 0x09]));
-        assert_eq!(polling_message(false, 1000), Some(vec![0x2B, 0x00]));
-        assert_eq!(polling_message(true, 125), Some(vec![0x6B, 0x03]));
-        assert_eq!(polling_message(false, 2000), None);
+        assert_eq!(dpi_message_for(&WIRELESS_PROFILE, false, 800), (800, vec![0x2D, 0x01, 0x00, 0x09]));
+        assert_eq!(dpi_message_for(&WIRELESS_PROFILE, true, 800), (800, vec![0x6D, 0x01, 0x00, 0x09]));
+        assert_eq!(polling_message_for(&WIRELESS_PROFILE, false, 1000), Some(vec![0x2B, 0x00]));
+        assert_eq!(polling_message_for(&WIRELESS_PROFILE, true, 125), Some(vec![0x6B, 0x03]));
+        assert_eq!(polling_message_for(&WIRELESS_PROFILE, false, 2000), None);
+
+        // Aerox 3 wired: 1-based preset, TrueMove Core table, 1..=4 polling codes
+        assert_eq!(
+            dpi_message_for(&AEROX3_WIRED_PROFILE, false, 800),
+            (800, vec![0x2D, 0x01, 0x01, 0x12])
+        );
+        assert_eq!(
+            polling_message_for(&AEROX3_WIRED_PROFILE, false, 1000),
+            Some(vec![0x2B, 0x01])
+        );
+        assert_eq!(
+            polling_message_for(&AEROX3_WIRED_PROFILE, false, 125),
+            Some(vec![0x2B, 0x04])
+        );
+        assert_eq!(polling_message_for(&AEROX3_WIRED_PROFILE, false, 2000), None);
     }
 
     #[test]
     fn no_message_is_a_dangerous_command() {
         // never the save-to-memory commands (11 / 51) or anything but 2D/2B/92 families
-        for receiver in [false, true] {
-            let first = [dpi_message(receiver, 1200).1[0], polling_message(receiver, 500).unwrap()[0], command(receiver)];
-            for byte in first {
-                assert!(matches!(byte & !RECEIVER_FLAG, 0x2D | 0x2B | 0x92));
+        for profile in [&WIRELESS_PROFILE, &AEROX3_WIRED_PROFILE] {
+            for receiver in [false, true] {
+                let first = [
+                    dpi_message_for(profile, receiver, 1200).1[0],
+                    polling_message_for(profile, receiver, 500).unwrap()[0],
+                    command(receiver),
+                ];
+                for byte in first {
+                    assert!(matches!(byte & !RECEIVER_FLAG, 0x2D | 0x2B | 0x92));
+                }
             }
         }
     }
@@ -496,11 +582,25 @@ mod tests {
         // Aerox 3 Wireless: the mouse cannot report DPI, but the screen must still offer it.
         let model = model_for(0x183A).expect("Aerox 3 Wireless is known");
         let info = describe(model, None, false);
+        assert_eq!(info.connection, "wired");
         assert!(info.capabilities.dpi_read && info.capabilities.dpi_write);
         assert!(info.capabilities.polling_read && info.capabilities.polling_write);
         assert_eq!(info.dpi, START_DPI);
         assert_eq!((info.dpi_min, info.dpi_max, info.dpi_step), (100, 18000, 100));
         assert!(info.dpi_levels.is_empty());
         assert_eq!(info.polling_supported, vec![125, 250, 500, 1000]);
+
+        // Aerox 3 Wired: no battery, TrueMove Core range 200..=8500.
+        let wired = model_for(0x1836).expect("Aerox 3 wired is known");
+        let wired_info = describe(wired, Some(50), true);
+        assert_eq!(wired_info.connection, "wired");
+        assert!(!wired_info.capabilities.battery);
+        assert_eq!(wired_info.battery, None);
+        assert!(!wired_info.charging);
+        assert!(wired_info.capabilities.dpi_read && wired_info.capabilities.dpi_write);
+        assert!(wired_info.capabilities.polling_read && wired_info.capabilities.polling_write);
+        assert_eq!(wired_info.dpi, START_DPI);
+        assert_eq!((wired_info.dpi_min, wired_info.dpi_max, wired_info.dpi_step), (200, 8500, 100));
+        assert_eq!(wired_info.polling_supported, vec![125, 250, 500, 1000]);
     }
 }

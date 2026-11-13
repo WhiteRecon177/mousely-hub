@@ -9,7 +9,7 @@ hardware yet, so the app marks them "not tested on this model".
 | Pulsar | X2 CrazyLight, Feinmann F01 Noctua Edition (cable and dongle) | polling rate, battery (estimate from the voltage), DPI of the first preset | - |
 | VAXEE | models with the VAXEE dongle or cable (checked on one model by others) | battery, charging, polling rate | - |
 | Lamzu | Maya X 8K (cable and dongle) | battery, charging | - |
-| SteelSeries | Aerox 3 / 5 / 9 Wireless (receiver, cable, special editions) | battery, charging; **writes** DPI and polling rate | - |
+| SteelSeries | Aerox 3 (cable) and Aerox 3 / 5 / 9 Wireless (receiver, cable, special editions) | battery and charging (wireless models); **writes** DPI and polling rate | - |
 | SteelSeries | Sensei Ten (cable) | writes DPI and polling rate | - |
 | Pulsar | X3, X3 LHD (cable only) | battery, charging, DPI, polling; **writes** DPI and polling rate | - |
 | HyperX | Pulsefire Dart (dongle and cable) | battery, charging, DPI; **writes** DPI and polling rate | - |
@@ -17,7 +17,7 @@ hardware yet, so the app marks them "not tested on this model".
 | Attack Shark | X11 (dongle or cable) | battery (only when the mouse reports it by itself) | - |
 
 ## What is NOT done on purpose
-- No writing, except SteelSeries Aerox 3/5/9 Wireless and Sensei Ten, HyperX Pulsefire Dart (DPI and polling rate) and Glorious (polling rate only), see below.
+- No writing, except SteelSeries Aerox 3 (cable), Aerox 3/5/9 Wireless and Sensei Ten, HyperX Pulsefire Dart (DPI and polling rate) and Glorious (polling rate only), see below.
 - The battery of Pulsar is an **estimate** computed from the voltage.
 - The DPI of Pulsar is shown only when the first DPI preset is the active one, because the notes
   only explain how to read that preset.
@@ -32,21 +32,27 @@ numbers on screen match the mouse. That is what turns an experimental driver int
 `docs/PROTOCOLLI.md`: only facts (ids, byte frames) taken from projects with permissive licences;
 no code was copied. Each driver says in its first lines where its facts come from.
 
-## SteelSeries Aerox 3 / 5 / 9 Wireless
+## SteelSeries Aerox 3 (cable) and Aerox 3 / 5 / 9 Wireless
 
 Facts taken from two permissively licensed projects; the code is written from scratch:
 - OpenSeries (crate `openseries-gg` 1.0.0, MIT, copyright 2026 Pico and OpenSeries contributors):
   ids and the battery answer.
-- rivalcfg 4.17.0 by Fabien Loison (flozz), WTFPL: the DPI and polling commands, the DPI code
-  table and the Aerox 9 ids. The three models use identical commands.
+- rivalcfg 4.17.0 by Fabien Loison (flozz), WTFPL: the DPI and polling commands, the TrueMove Air
+  and TrueMove Core DPI code tables, and the Aerox 3 (cable) / Aerox 9 ids.
 
-The driver sends the battery question (`92`, `D2` through the receiver), one DPI preset
-(`2D 01 00 <code>`, 100-18000 DPI in steps of 100) and the polling rate (`2B <code>`, 125/250/500/1000 Hz).
-Through the receiver the command byte gets bit `0x40` and the 64-byte answer is read and dropped.
+For the wireless models (TrueMove Air), the driver sends the battery question (`92`, `D2` through
+the receiver), one DPI preset (`2D 01 00 <code>`, 100-18000 DPI in steps of 100) and the polling
+rate (`2B <code>` with 125=3, 250=2, 500=1, 1000=0). Through the receiver the command byte gets
+bit `0x40` and the 64-byte answer is read and dropped.
+
+For the wired Aerox 3 (`1038:1836`, TrueMove Core, no battery), it sends one DPI preset
+(`2D 01 01 <code>`, 200-8500 DPI in steps of 100) and the polling rate (`2B <code>` with
+125=4, 250=3, 500=2, 1000=1).
+
 The "save to the mouse memory" command is **never** sent, so the settings last until the mouse is
 switched off; lighting, buttons, sleep timer, pairing, firmware and reset are never touched.
 The mouse cannot be asked for its DPI or polling rate, so the app shows the last value it wrote.
-Not tested on real hardware by us ("expected"). Wired Aerox 3/5 have no battery and are not handled.
+Not tested on real hardware by us ("expected"). Wired Aerox 5 has no battery and is not handled.
 
 Still not done (no verified permissive source): Aerox 3 Wireless Gen 2, other Attack Shark
 models, Microsoft, Roccat, Razer.

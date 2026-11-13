@@ -9,7 +9,7 @@ The licence of each project was read in its `LICENSE` file, unless stated otherw
 
 | Project | Author / copyright | Licence | Used for |
 |---|---|---|---|
-| [rivalcfg](https://github.com/flozz/rivalcfg) 4.17.0 | Fabien Loison (flozz) | WTFPL v2 | SteelSeries Aerox 3/5/9 Wireless and Sensei Ten: DPI and polling commands, DPI code table, ids |
+| [rivalcfg](https://github.com/flozz/rivalcfg) 4.17.0 | Fabien Loison (flozz) | WTFPL v2 | SteelSeries Aerox 3 (cable), Aerox 3/5/9 Wireless and Sensei Ten: DPI and polling commands, DPI code tables, ids |
 | [OpenSeries](https://crates.io/crates/openseries-gg) (`openseries-gg` 1.0.0) | Copyright (c) 2026 Pico and OpenSeries contributors | MIT | SteelSeries Aerox 3/5 battery, Sensei Ten ids and commands |
 | [OpenSharkX11](https://github.com/HarukaYamamoto0) | HarukaYamamoto0 | MIT | Attack Shark X11 battery report |
 | [hyperx_pulsefire_dart_reverse_engineering](https://github.com/santeri3700/hyperx_pulsefire_dart_reverse_engineering) | santeri3700 | CC0 1.0 (stated in the README of the repository) | HyperX Pulsefire Dart protocol |
