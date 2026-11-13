@@ -898,6 +898,7 @@ fn set_dpi(value: u32) -> Result<u32, String> {
             let lod = now.get(9).copied().unwrap_or(0);
 
             let mut ignored = Vec::new();
+            let mut value = value;
             if let Some((min, max, _)) =
                 read_ext_ranges(&hp, index, feature, &mut ignored).and_then(|bytes| parse_dpi_list(&bytes))
             {
@@ -908,6 +909,8 @@ fn set_dpi(value: u32) -> Result<u32, String> {
                     ));
                 }
             }
+            // The value is written as two bytes, so it cannot pass 65535 (also when no range is known).
+            value = value.min(u32::from(u16::MAX));
 
             let high = (value >> 8) as u8;
             let low = (value & 0xFF) as u8;

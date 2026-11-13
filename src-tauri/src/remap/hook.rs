@@ -4,6 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc::{sync_channel, SyncSender};
 use std::sync::{LazyLock, Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Duration;
@@ -20,6 +21,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
 };
 
 use super::types::{Mapping, RemapAction};
+use crate::macros::types::MacroAction;
+use crate::store::RemapFile;
 
 // Remapping is OFF until the UI turns it on (safe default).
 static ENABLED: AtomicBool = AtomicBool::new(false);
@@ -28,24 +31,70 @@ static STARTED: AtomicBool = AtomicBool::new(false);
 static APP: OnceLock<AppHandle> = OnceLock::new();
 static MAPPINGS: LazyLock<Mutex<HashMap<String, RemapAction>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
+// The actions of the macros assigned to a button, so playing needs no window.
+static MACROS: LazyLock<Mutex<HashMap<String, Vec<MacroAction>>>> =
+    LazyLock::new(|| Mutex::new(HashMap::new()));
 // Buttons whose "down" we swallowed: their "up" must be swallowed too.
 static SWALLOWED: LazyLock<Mutex<HashSet<&'static str>>> =
     LazyLock::new(|| Mutex::new(HashSet::new()));
-
-#[derive(Serialize, Clone)]
-struct TriggerPayload {
-    button: String,
-    id: String,
-}
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(|e| e.into_inner())
 }
 
-fn emit<S: Serialize + Clone>(event: &str, payload: S) {
-    if let Some(app) = APP.get() {
-        let _ = app.emit(event, payload);
+// Work that must not run inside a hook callback: the worker thread does it.
+enum Job {
+    SendKeys(Vec<String>),
+    Emit(&'static str, serde_json::Value),
+    PlayMacro(String),
+    // F10 turned remapping off: save that to remap.json.
+    PersistDisabled,
+}
+
+static JOBS: OnceLock<SyncSender<Job>> = OnceLock::new();
+
+// Never blocks: when the queue is full the job is dropped.
+fn queue(job: Job) {
+    if let Some(sender) = JOBS.get() {
+        let _ = sender.try_send(job);
     }
+}
+
+fn emit<S: Serialize>(event: &'static str, payload: S) {
+    if let Ok(value) = serde_json::to_value(payload) {
+        queue(Job::Emit(event, value));
+    }
+}
+
+// Starts the worker thread that runs the queued jobs (only once).
+fn start_worker() {
+    let (sender, receiver) = sync_channel::<Job>(64);
+    if JOBS.set(sender).is_err() {
+        return;
+    }
+    thread::spawn(move || {
+        for job in receiver {
+            match job {
+                Job::SendKeys(keys) => send_keys(&keys),
+                Job::Emit(event, payload) => {
+                    if let Some(app) = APP.get() {
+                        let _ = app.emit(event, payload);
+                    }
+                }
+                Job::PlayMacro(id) => {
+                    let actions = lock(&MACROS).get(&id).cloned();
+                    if let (Some(app), Some(actions)) = (APP.get(), actions) {
+                        let _ = crate::macros::player::start_playback(app.clone(), actions, 1);
+                    }
+                }
+                Job::PersistDisabled => {
+                    if let Some(app) = APP.get() {
+                        let _ = crate::store::save_remap(app, &snapshot());
+                    }
+                }
+            }
+        }
+    });
 }
 
 pub fn set_mappings(list: Vec<Mapping>) {
@@ -58,6 +107,37 @@ pub fn set_mappings(list: Vec<Mapping>) {
         }
         map.insert(m.button, m.action);
     }
+}
+
+pub fn set_macros(macros: HashMap<String, Vec<MacroAction>>) {
+    *lock(&MACROS) = macros;
+}
+
+// What is saved to remap.json: the current state of the hook.
+pub fn snapshot() -> RemapFile {
+    let mappings = lock(&MAPPINGS)
+        .iter()
+        .map(|(button, action)| Mapping {
+            button: button.clone(),
+            action: action.clone(),
+        })
+        .collect();
+    RemapFile {
+        enabled: ENABLED.load(Ordering::SeqCst),
+        mappings,
+        macros: lock(&MACROS).clone(),
+    }
+}
+
+// Loads what was saved on disk (called once at start, before the hooks).
+pub fn apply(file: RemapFile) {
+    set_mappings(file.mappings);
+    set_macros(file.macros);
+    set_enabled(file.enabled);
+}
+
+pub fn is_enabled() -> bool {
+    ENABLED.load(Ordering::SeqCst)
 }
 
 pub fn set_enabled(enabled: bool) {
@@ -125,18 +205,12 @@ fn handle(msg: u32, data: u32) -> bool {
         }
         Some(RemapAction::Keys { keys }) => {
             lock(&SWALLOWED).insert(name);
-            thread::spawn(move || send_keys(&keys));
+            queue(Job::SendKeys(keys));
             true
         }
         Some(RemapAction::Macro { id }) => {
             lock(&SWALLOWED).insert(name);
-            emit(
-                "mouse-remap-trigger",
-                TriggerPayload {
-                    button: name.to_string(),
-                    id,
-                },
-            );
+            queue(Job::PlayMacro(id));
             true
         }
     }
@@ -181,6 +255,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             if info.flags.0 & 0x10 == 0 && info.vkCode == 0x79 && ENABLED.swap(false, Ordering::SeqCst) {
                 lock(&SWALLOWED).clear();
                 emit("mouse-remap-disabled", true);
+                queue(Job::PersistDisabled);
             }
         }
     }
@@ -193,6 +268,7 @@ pub fn start(app: AppHandle) {
         return;
     }
     let _ = APP.set(app);
+    start_worker();
 
     thread::spawn(|| unsafe {
         let mouse = SetWindowsHookExW(WH_MOUSE_LL, Some(mouse_proc), HINSTANCE::default(), 0);
@@ -215,4 +291,5 @@ pub fn start(app: AppHandle) {
         return;
     }
     let _ = APP.set(app);
+    start_worker();
 }

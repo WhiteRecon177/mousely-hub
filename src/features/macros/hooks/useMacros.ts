@@ -3,6 +3,13 @@ import { macroApi } from "../services/macroApi";
 import { loadMacros, saveMacros } from "../services/macroStorage";
 import { MacroAction, MacroStatus, SavedMacro } from "../types";
 import { translate } from "../../../i18n";
+import { loadRemapState } from "../../mouse/services/mouseStorage";
+import { syncRemap } from "../../mouse/services/remapSync";
+
+// Macros assigned to a button are also kept by the backend: send them again after a change.
+function resync(): void {
+  syncRemap(loadRemapState()).catch((e) => console.error("Remap sync failed", e));
+}
 
 function errorText(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
@@ -104,6 +111,7 @@ export function useMacros() {
       const updated = existing ? saved.map((m) => (m.id === id ? macro : m)) : [...saved, macro];
       setSaved(updated);
       saveMacros(updated);
+      resync();
       flash(translate("macro.saved", { name: trimmed }));
       return id;
     },
@@ -115,6 +123,7 @@ export function useMacros() {
       const updated = saved.filter((m) => m.id !== id);
       setSaved(updated);
       saveMacros(updated);
+      resync();
     },
     [saved]
   );

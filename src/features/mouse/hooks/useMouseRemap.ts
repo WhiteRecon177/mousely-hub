@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ButtonId, RemapAction, RemapState } from "../types";
 import { mouseApi } from "../services/mouseApi";
-import { loadRemapState, saveRemapState } from "../services/mouseStorage";
+import { REMAP_CHANGED_EVENT, loadRemapState, saveRemapState } from "../services/mouseStorage";
 import { syncRemap } from "../services/remapSync";
 import { translate } from "../../../i18n";
 
@@ -54,9 +54,14 @@ export function useMouseRemap() {
       })
     );
 
+    // The state was reconciled with the backend after this page was built: read it again.
+    const reload = () => setState(loadRemapState());
+    window.addEventListener(REMAP_CHANGED_EVENT, reload);
+
     return () => {
       alive = false;
       offs.forEach((off) => off());
+      window.removeEventListener(REMAP_CHANGED_EVENT, reload);
       mouseApi.cancelDetect().catch(() => {});
     };
   }, []);

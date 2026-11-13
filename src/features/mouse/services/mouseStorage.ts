@@ -17,6 +17,9 @@ export function loadRemapState(): RemapState {
   }
 }
 
+/** Sent on window when the remap state was changed from outside the UI (backend value). */
+export const REMAP_CHANGED_EVENT = "devicedeck-remap-changed";
+
 export function saveRemapState(state: RemapState): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));

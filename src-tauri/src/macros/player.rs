@@ -8,8 +8,14 @@ use tauri::{AppHandle, Emitter};
 use crate::macros::recorder::{PLAYING, RECORDING, STOP_PLAYBACK};
 use crate::macros::types::{ActionKind, MacroAction};
 
+pub const MAX_ACTIONS: usize = 10_000;
+const MAX_DELAY_MS: u64 = 60_000;
+
 // Plays the actions in a background thread. F10 or stop_playback ends it early.
 pub fn start_playback(app: AppHandle, actions: Vec<MacroAction>, repeat: u32) -> Result<(), String> {
+    if actions.len() > MAX_ACTIONS {
+        return Err("Macro too long".to_string());
+    }
     if RECORDING.load(Ordering::SeqCst) {
         return Err("Recording in progress".to_string());
     }
@@ -18,6 +24,14 @@ pub fn start_playback(app: AppHandle, actions: Vec<MacroAction>, repeat: u32) ->
     }
     STOP_PLAYBACK.store(false, Ordering::SeqCst);
     let repeat = repeat.clamp(1, 1000);
+    // Never wait longer than a minute for one action
+    let actions: Vec<MacroAction> = actions
+        .into_iter()
+        .map(|mut action| {
+            action.delay_ms = action.delay_ms.min(MAX_DELAY_MS);
+            action
+        })
+        .collect();
 
     thread::spawn(move || {
         'all: for round in 0..repeat {

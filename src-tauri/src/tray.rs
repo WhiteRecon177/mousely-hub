@@ -1,6 +1,7 @@
 //! Tray icon: battery icon + tooltip. Right click opens a small window of the app (not a native
 //! Windows menu: that one kept the whole app waiting while it was open). Closing the main window
-//! hides it, so the app keeps running in the tray.
+//! destroys it (and its WebView2), so the app keeps running in the tray with no web process.
+//! Windows are created again on demand.
 //!
 //! Registered as a plugin: `.plugin(tray::plugin())` in lib.rs.
 
@@ -26,8 +27,8 @@ const MENU_WIDTH: f64 = 250.0;
 const MENU_HEIGHT: f64 = 150.0;
 const REFRESH_EVERY: Duration = Duration::from_secs(60);
 
-/// Only hide the window on close when the tray really exists, otherwise the app could not be reopened.
-static TRAY_READY: AtomicBool = AtomicBool::new(false);
+/// The app may only stay alive without windows when the tray really exists, otherwise it could not be reopened.
+pub(crate) static TRAY_READY: AtomicBool = AtomicBool::new(false);
 
 /// When the small menu was shown (ms since start of epoch), to ignore the focus change that
 /// happens while it opens.
@@ -46,18 +47,43 @@ static MENU_TEXT: Mutex<(String, String)> = Mutex::new((String::new(), String::n
 /// What the icon and tooltip show now, so they are touched only when something changed.
 static LAST_KEY: Mutex<String> = Mutex::new(String::new());
 
-fn show_window<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(window) = app.get_webview_window("main") {
-        let _ = window.show();
-        let _ = window.unminimize();
-        let _ = window.set_focus();
-    }
+fn focus<R: Runtime>(window: &tauri::WebviewWindow<R>) {
+    let _ = window.show();
+    let _ = window.unminimize();
+    let _ = window.set_focus();
 }
 
-/// The menu window is created once (hidden) and then only shown and hidden, so it opens at once.
+/// Shows the main window. When it does not exist (closed to the tray, or the app started with
+/// `--minimized`) it is created from the config first, on its own thread.
+pub fn show_window<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        focus(&window);
+        return;
+    }
+
+    let app = app.clone();
+    std::thread::spawn(move || {
+        // Two quick clicks: the other thread may have built it already.
+        if let Some(window) = app.get_webview_window("main") {
+            focus(&window);
+            return;
+        }
+        let Some(config) = app.config().app.windows.first() else {
+            return;
+        };
+        if let Ok(builder) = WebviewWindowBuilder::from_config(&app, config) {
+            if let Ok(window) = builder.build() {
+                focus(&window);
+            }
+        }
+    });
+}
+
+/// The small menu window is destroyed when it closes (no web process stays), and built again
+/// when it is needed.
 fn close_menu<R: Runtime>(app: &AppHandle<R>) {
     if let Some(window) = app.get_webview_window(MENU_LABEL) {
-        let _ = window.hide();
+        let _ = window.close();
     }
 }
 
@@ -167,14 +193,14 @@ fn toggle_menu<R: Runtime>(app: &AppHandle<R>, click: PhysicalPosition<f64>) {
 
     if let Some(window) = app.get_webview_window(MENU_LABEL) {
         if window.is_visible().unwrap_or(false) {
-            let _ = window.hide();
+            close_menu(app);
         } else {
             place_and_show(app, &window, click);
         }
         return;
     }
 
-    // First use (the window is normally prepared in advance): create it on its own thread.
+    // The window does not exist: create it on its own thread.
     let app = app.clone();
     std::thread::spawn(move || {
         if let Some(window) = build_menu_window(&app) {
@@ -240,15 +266,6 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
 
             TRAY_READY.store(true, Ordering::SeqCst);
 
-            // Prepare the small menu window in the background, hidden, a moment after start.
-            let prepare = app.clone();
-            std::thread::spawn(move || {
-                std::thread::sleep(Duration::from_millis(1500));
-                if prepare.get_webview_window(MENU_LABEL).is_none() {
-                    let _ = build_menu_window(&prepare);
-                }
-            });
-
             // One light reading per minute, on its own thread. The icon and tooltip are only
             // touched when something changed, and the update is queued on the main thread
             // without waiting for it.
@@ -279,15 +296,6 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
                         if label.as_str() == "main" && !crate::settings::CLOSE_TO_TRAY.load(Ordering::SeqCst) =>
                     {
                         app.exit(0);
-                    }
-                    WindowEvent::CloseRequested { api, .. }
-                        if label.as_str() == "main" && TRAY_READY.load(Ordering::SeqCst) =>
-                    {
-                        api.prevent_close();
-
-                        if let Some(window) = app.get_webview_window(&label) {
-                            let _ = window.hide();
-                        }
                     }
                     _ => {}
                 }

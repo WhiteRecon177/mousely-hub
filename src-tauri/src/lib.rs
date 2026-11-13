@@ -6,6 +6,7 @@ mod tray;
 mod tray_icon;
 mod remap;
 mod settings;
+mod store;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -18,16 +19,20 @@ pub fn run() {
             let _ = app.handle().plugin(tauri_plugin_process::init());
 
             macros::recorder::start_listener(app.handle().clone());
+            // What the user saved (remap, macros, close setting) is loaded here, so everything works
+            // from Rust alone, with no window.
+            settings::CLOSE_TO_TRAY.store(
+                store::load_settings(app.handle()).close_to_tray,
+                std::sync::atomic::Ordering::SeqCst,
+            );
+            remap::hook::apply(store::load_remap(app.handle()));
             remap::hook::start(app.handle().clone());
             device_watch::start(app.handle().clone());
 
-            // The window starts hidden: it is shown now, unless Windows started the app at login
-            // (`--minimized`): then it stays in the tray.
+            // The window is not created at start: it is created now, unless Windows started the app
+            // at login (`--minimized`): then no window exists until the tray asks for one.
             if !std::env::args().any(|arg| arg == "--minimized") {
-                if let Some(window) = tauri::Manager::get_webview_window(app, "main") {
-                    let _ = window.show();
-                    let _ = window.set_focus();
-                }
+                tray::show_window(app.handle());
             }
             Ok(())
         })
@@ -49,9 +54,19 @@ pub fn run() {
             mouse::commands::set_mouse_dpi,
             remap::commands::set_mouse_mappings,
             remap::commands::set_remap_enabled,
+            remap::commands::get_remap_state,
             remap::commands::start_button_detect,
             remap::commands::cancel_button_detect,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|_app, event| {
+            // With every window closed the app keeps running in the tray (remapping goes on).
+            // `app.exit(0)` (tray "Quit") has a code, so it still quits.
+            if let tauri::RunEvent::ExitRequested { code: None, api, .. } = event {
+                if tray::TRAY_READY.load(std::sync::atomic::Ordering::SeqCst) {
+                    api.prevent_exit();
+                }
+            }
+        });
 }

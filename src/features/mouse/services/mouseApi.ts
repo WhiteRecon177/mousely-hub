@@ -1,15 +1,18 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { ButtonId, RemapAction } from "../types";
-
-export interface TriggerPayload {
-  button: string;
-  id: string;
-}
+import type { MacroAction } from "../../macros/types";
 
 export const mouseApi = {
-  setMappings(list: { button: ButtonId; action: RemapAction }[]): Promise<void> {
-    return invoke<void>("set_mouse_mappings", { mappings: list });
+  // The macros used by the buttons go along: the backend plays them without a window.
+  setMappings(
+    list: { button: ButtonId; action: RemapAction }[],
+    macros: Record<string, MacroAction[]>,
+  ): Promise<void> {
+    return invoke<void>("set_mouse_mappings", { mappings: list, macros });
+  },
+  getState(): Promise<{ enabled: boolean }> {
+    return invoke<{ enabled: boolean }>("get_remap_state");
   },
   setEnabled(enabled: boolean): Promise<void> {
     return invoke<void>("set_remap_enabled", { enabled });
@@ -22,9 +25,6 @@ export const mouseApi = {
   },
   onDetected(handler: (button: string) => void): Promise<() => void> {
     return listen<string>("mouse-button-detected", (e) => handler(e.payload));
-  },
-  onTrigger(handler: (p: TriggerPayload) => void): Promise<() => void> {
-    return listen<TriggerPayload>("mouse-remap-trigger", (e) => handler(e.payload));
   },
   onDisabled(handler: () => void): Promise<() => void> {
     return listen<boolean>("mouse-remap-disabled", () => handler());

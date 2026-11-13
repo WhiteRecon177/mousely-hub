@@ -73,6 +73,9 @@ pub fn dpi_from_raw(raw: u8) -> u32 {
     (u32::from(raw) + 1) * 50
 }
 
+/// Fewest bytes an answer must have: the highest byte used by the callers is answer[9].
+const MIN_ANSWER_LEN: usize = 10;
+
 /// Sends one request and returns the answer that repeats the command (up to 3 other
 /// answers are skipped, for example a mouse event arriving in between).
 fn ask(device: &HidDevice, request: &[u8; 17]) -> Option<[u8; 32]> {
@@ -81,7 +84,8 @@ fn ask(device: &HidDevice, request: &[u8; 17]) -> Option<[u8; 32]> {
     for _ in 0..4 {
         let mut buffer = [0u8; 32];
         let read = device.read_timeout(&mut buffer, 250).ok()?;
-        if read == 0 {
+        // Callers read up to byte 9 (battery), so a shorter answer is not usable.
+        if read < MIN_ANSWER_LEN {
             return None;
         }
         if buffer[0] == 0x08 && buffer[1] == request[1] {

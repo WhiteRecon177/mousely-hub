@@ -268,6 +268,7 @@ Var SkReady
 Var SkDlg
 Var SkInst
 Var SkDir
+Var SkFree
 Var SkPct
 Var SkVar
 Var SkRun
@@ -911,7 +912,43 @@ Function SkBrowse
       ${EndIf}
     ${EndIf}
     ${NSD_SetText} $SkDir $0
+    Call SkUpdateFree
   ${EndIf}
+FunctionEnd
+
+; refresh the free-space label for the drive of the path in the text field
+Function SkUpdateFree
+  Push $0
+  Push $1
+  Push $3
+  Push $4
+  Push $5
+  ${NSD_GetText} $SkDir $0
+  StrCpy $3 $0 3
+  StrCpy $4 $3 1 1
+  StrCpy $1 0
+  ${If} $4 == ":"
+    System::Call 'kernel32::GetDiskFreeSpaceExW(w r3,*l .r5,*l,*l)i .r1'
+  ${EndIf}
+  ${If} $1 <> 0
+    System::Int64Op $5 / 1073741824
+    Pop $4
+    StrCpy $4 "$4 GB"
+  ${Else}
+    StrCpy $4 "-"
+  ${EndIf}
+  ${NSD_SetText} $SkFree $4
+  Pop $5
+  Pop $4
+  Pop $3
+  Pop $1
+  Pop $0
+FunctionEnd
+
+; nsDialogs OnChange callback: handle is on the stack
+Function SkDirChanged
+  Pop $0
+  Call SkUpdateFree
 FunctionEnd
 
 Function SkDirShow
@@ -925,14 +962,6 @@ Function SkDirShow
     StrCpy $2 1
   ${EndIf}
   StrCpy $2 "$2 MB"
-  StrCpy $3 $INSTDIR 3
-  StrCpy $4 ""
-  System::Call 'kernel32::GetDiskFreeSpaceExW(w r3,*l .r5,*l,*l)i .r1'
-  ${If} $1 <> 0
-    System::Int64Op $5 / 1073741824
-    Pop $4
-    StrCpy $4 "$4 GB"
-  ${EndIf}
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
@@ -958,16 +987,18 @@ Function SkDirShow
   SetCtlColors $1 "EAF0FF" "0F1740"
   SendMessage $1 0x30 $R9 1
   !insertmacro SK_PLACE $1 279 279 193 30
-  ${NSD_CreateLabel} 0 0 10u 10u "$4"
-  Pop $1
-  SetCtlColors $1 "EAF0FF" "0F1740"
-  SendMessage $1 0x30 $R9 1
-  !insertmacro SK_PLACE $1 518 279 193 30
+  ${NSD_CreateLabel} 0 0 10u 10u ""
+  Pop $SkFree
+  SetCtlColors $SkFree "EAF0FF" "0F1740"
+  SendMessage $SkFree 0x30 $R9 1
+  !insertmacro SK_PLACE $SkFree 518 279 193 30
   !insertmacro SK_BTN $1 618 184 110 44 SkBrowse c-p2-b-browse
   !insertmacro SK_BTN $1 516 411 100 39 SkBack c-p2-b-back
   !insertmacro SK_BTN $1 628 411 100 39 SkNext c-p2-b-install
   !insertmacro SK_BG p2
   !insertmacro SK_BOTTOM
+  Call SkUpdateFree
+  ${NSD_OnChange} $SkDir SkDirChanged
   nsDialogs::Show
 FunctionEnd
 Function SkDirLeave
@@ -1716,6 +1747,7 @@ Section Uninstall
   ; We do this when not updating (to preserve the registry value on updates)
   ${If} $UpdateMode <> 1
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${PRODUCTNAME}"
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "DeviceDeck"
   ${EndIf}
 
   ; Delete app data if the checkbox is selected

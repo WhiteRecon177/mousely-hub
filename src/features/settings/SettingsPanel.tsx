@@ -5,6 +5,8 @@ import { LANGUAGES, getLanguage, setLanguage, useT, type Lang } from "../../i18n
 import { THEMES, setTheme, useTheme, type ThemeId } from "../../theme/theme";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from "./settingsStore";
 import { UpdateRow } from "../updater";
+import { loadRemapState, saveRemapState } from "../mouse/services/mouseStorage";
+import { syncRemap } from "../mouse/services/remapSync";
 import "./settings.css";
 
 function errorText(e: unknown): string {
@@ -104,6 +106,30 @@ export function SettingsButton() {
     }
   };
 
+  // Removes every saved macro and puts the buttons that used one back to normal.
+  const deleteMacros = async () => {
+    if (!confirm(t("settings.deleteMacrosConfirm"))) return;
+    try {
+      localStorage.removeItem("devicedeck.macros");
+    } catch {
+      // storage not available
+    }
+    const state = loadRemapState();
+    const actions = { ...state.actions };
+    for (const [button, action] of Object.entries(actions)) {
+      if (action?.type === "Macro") actions[button as keyof typeof actions] = { type: "Normal" };
+    }
+    saveRemapState({ ...state, actions });
+    try {
+      await syncRemap(loadRemapState());
+    } catch (e) {
+      setNote(errorText(e));
+      return;
+    }
+    // The macro lists and the button list read their data at start: load everything again.
+    location.reload();
+  };
+
   const reset = async () => {
     update(DEFAULT_SETTINGS);
     await changeAutostart(false);
@@ -177,6 +203,9 @@ export function SettingsButton() {
           <div className="dd-set-actions">
             <button type="button" className="dd-set-btn" onClick={copyInfo}>
               {t("settings.copyInfo")}
+            </button>
+            <button type="button" className="dd-set-btn dd-set-btn--ghost" onClick={deleteMacros}>
+              {t("settings.deleteMacros")}
             </button>
             <button type="button" className="dd-set-btn dd-set-btn--ghost" onClick={reset}>
               {t("settings.reset")}

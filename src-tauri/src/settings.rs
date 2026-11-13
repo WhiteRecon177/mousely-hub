@@ -17,35 +17,59 @@ pub static CLOSE_TO_TRAY: AtomicBool = AtomicBool::new(true);
 
 #[cfg(windows)]
 mod autostart {
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
+    use windows::core::{w, PCWSTR};
+    use windows::Win32::System::Registry::{
+        RegDeleteKeyValueW, RegGetValueW, RegSetKeyValueW, HKEY_CURRENT_USER, REG_SZ,
+        RRF_RT_REG_SZ,
+    };
 
-    const RUN_KEY: &str = r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run";
-    const VALUE_NAME: &str = "DeviceDeck";
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    // Subkey and value names as UTF-16 (the registry API is called directly, no "reg.exe").
+    const RUN_KEY: PCWSTR = w!(r"Software\Microsoft\Windows\CurrentVersion\Run");
+    const VALUE_NAME: PCWSTR = w!("Mousely Hub");
+    // Name used by older versions: still recognized and cleaned up.
+    const LEGACY_NAME: PCWSTR = w!("DeviceDeck");
 
-    fn reg(args: &[&str]) -> std::io::Result<std::process::Output> {
-        Command::new("reg").args(args).creation_flags(CREATE_NO_WINDOW).output()
+    fn exists(name: PCWSTR) -> bool {
+        unsafe {
+            RegGetValueW(HKEY_CURRENT_USER, RUN_KEY, name, RRF_RT_REG_SZ, None, None, None).is_ok()
+        }
+    }
+
+    fn remove(name: PCWSTR) {
+        // Fails when the value is not there: that is fine, it is already off.
+        unsafe {
+            let _ = RegDeleteKeyValueW(HKEY_CURRENT_USER, RUN_KEY, name);
+        }
     }
 
     pub fn is_on() -> bool {
-        reg(&["query", RUN_KEY, "/v", VALUE_NAME])
-            .map(|output| output.status.success())
-            .unwrap_or(false)
+        exists(VALUE_NAME) || exists(LEGACY_NAME)
     }
 
     pub fn set(enabled: bool) -> Result<(), String> {
         if enabled {
             let exe = std::env::current_exe().map_err(|error| error.to_string())?;
             let data = format!("\"{}\" --minimized", exe.display());
-            let output = reg(&["add", RUN_KEY, "/v", VALUE_NAME, "/t", "REG_SZ", "/d", &data, "/f"])
-                .map_err(|error| error.to_string())?;
-            if !output.status.success() {
+            // UTF-16 with the terminating null; the size is in bytes, terminator included.
+            let wide: Vec<u16> = data.encode_utf16().chain(std::iter::once(0)).collect();
+            let bytes = u32::try_from(wide.len() * 2).map_err(|error| error.to_string())?;
+            let result = unsafe {
+                RegSetKeyValueW(
+                    HKEY_CURRENT_USER,
+                    RUN_KEY,
+                    VALUE_NAME,
+                    REG_SZ.0,
+                    Some(wide.as_ptr().cast()),
+                    bytes,
+                )
+            };
+            if result.is_err() {
                 return Err("Could not turn on start with the system".to_string());
             }
+            remove(LEGACY_NAME);
         } else {
-            // Fails when the entry is not there: that is fine, it is already off.
-            let _ = reg(&["delete", RUN_KEY, "/v", VALUE_NAME, "/f"]);
+            remove(VALUE_NAME);
+            remove(LEGACY_NAME);
         }
         Ok(())
     }
@@ -69,6 +93,40 @@ mod autostart {
         Some(base.join("autostart/mousely-hub.desktop"))
     }
 
+    #[cfg(target_os = "macos")]
+    fn xml_escape(text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        for c in text.chars() {
+            match c {
+                '&' => out.push_str("&amp;"),
+                '<' => out.push_str("&lt;"),
+                '>' => out.push_str("&gt;"),
+                '"' => out.push_str("&quot;"),
+                '\'' => out.push_str("&apos;"),
+                _ => out.push(c),
+            }
+        }
+        out
+    }
+
+    // Escapes the path for Exec="..." in a .desktop file. First the quoting layer
+    // (backslash, double quote, backtick, dollar get a backslash), then the string-value
+    // layer, where every backslash is written twice.
+    #[cfg(not(target_os = "macos"))]
+    fn desktop_exec_escape(path: &str) -> Result<String, String> {
+        if path.contains('\n') || path.contains('\r') {
+            return Err("The app path has a line break and cannot be used for autostart".to_string());
+        }
+        let mut quoted = String::with_capacity(path.len());
+        for c in path.chars() {
+            if matches!(c, '\\' | '"' | '`' | '$') {
+                quoted.push('\\');
+            }
+            quoted.push(c);
+        }
+        Ok(quoted.replace('\\', "\\\\"))
+    }
+
     pub fn is_on() -> bool {
         file().map(|path| path.exists()).unwrap_or(false)
     }
@@ -83,7 +141,12 @@ mod autostart {
         }
 
         let exe = std::env::current_exe().map_err(|error| error.to_string())?;
-        let exe = exe.display();
+
+        #[cfg(target_os = "macos")]
+        let exe = xml_escape(&exe.display().to_string());
+
+        #[cfg(not(target_os = "macos"))]
+        let exe = desktop_exec_escape(&exe.display().to_string())?;
 
         #[cfg(target_os = "macos")]
         let content = format!(
@@ -121,8 +184,9 @@ pub fn set_autostart(enabled: bool) -> Result<bool, String> {
 }
 
 #[tauri::command]
-pub fn set_close_to_tray(enabled: bool) {
+pub fn set_close_to_tray(app: tauri::AppHandle, enabled: bool) {
     CLOSE_TO_TRAY.store(enabled, std::sync::atomic::Ordering::SeqCst);
+    let _ = crate::store::save_settings(&app, &crate::store::SettingsFile { close_to_tray: enabled });
 }
 
 fn hex4(value: u16) -> String {

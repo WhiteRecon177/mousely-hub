@@ -38,6 +38,8 @@ export function MacroRecorder({
     <section className="dd-section">
       <div className="dd-title">{t("macro.create")}</div>
 
+      <div className="dd-hint">{t("macro.passwordWarning")}</div>
+
       <div className="dd-row">
         <button
           type="button"

@@ -1,5 +1,6 @@
 ﻿use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, MutexGuard};
+use std::sync::mpsc::{sync_channel, SyncSender};
+use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::thread;
 use std::time::Instant;
 
@@ -13,6 +14,7 @@ pub static PLAYING: AtomicBool = AtomicBool::new(false);
 pub static STOP_PLAYBACK: AtomicBool = AtomicBool::new(false);
 static LISTENER_STARTED: AtomicBool = AtomicBool::new(false);
 
+static STOPPED_TX: OnceLock<SyncSender<Vec<MacroAction>>> = OnceLock::new();
 static ACTIONS: Mutex<Vec<MacroAction>> = Mutex::new(Vec::new());
 static LAST_POS: Mutex<(f64, f64)> = Mutex::new((0.0, 0.0));
 static LAST_TIME: Mutex<Option<Instant>> = Mutex::new(None);
@@ -27,13 +29,22 @@ pub fn start_listener(app: AppHandle) {
     if LISTENER_STARTED.swap(true, Ordering::SeqCst) {
         return;
     }
+    // Worker that tells the UI the recording stopped (the listener callback must stay fast)
+    let (sender, receiver) = sync_channel::<Vec<MacroAction>>(4);
+    let _ = STOPPED_TX.set(sender);
     thread::spawn(move || {
+        for actions in receiver {
+            let _ = app.emit("macro-recording-stopped", actions);
+        }
+    });
+
+    thread::spawn(|| {
         // listen() blocks this thread for the whole life of the app
-        let _result = rdev::listen(move |event| handle_event(&app, event));
+        let _result = rdev::listen(handle_event);
     });
 }
 
-fn handle_event(app: &AppHandle, event: Event) {
+fn handle_event(event: Event) {
     let event_type = event.event_type;
 
     // Remember the mouse position: clicks are saved together with it
@@ -46,8 +57,11 @@ fn handle_event(app: &AppHandle, event: Event) {
     match event_type {
         EventType::KeyPress(Key::F10) => {
             if RECORDING.load(Ordering::SeqCst) {
+                // Do not emit from the listener callback: hand it to the worker thread
                 let actions = finish_recording(false);
-                let _ = app.emit("macro-recording-stopped", actions);
+                if let Some(sender) = STOPPED_TX.get() {
+                    let _ = sender.try_send(actions);
+                }
             } else if PLAYING.load(Ordering::SeqCst) {
                 STOP_PLAYBACK.store(true, Ordering::SeqCst);
             }
