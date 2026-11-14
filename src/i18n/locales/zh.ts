@@ -12,6 +12,7 @@ export const zh: Record<Key, string> = {
   "common.edit": "编辑",
   "common.stop": "停止",
   "common.remove": "移除",
+  "common.close": "关闭",
   "common.on": "开",
   "common.off": "关",
   "common.unknown": "未知",

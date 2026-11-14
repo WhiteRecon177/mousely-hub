@@ -11,6 +11,7 @@ export const en = {
   "common.edit": "Edit",
   "common.stop": "Stop",
   "common.remove": "Remove",
+  "common.close": "Close",
   "common.on": "ON",
   "common.off": "OFF",
   "common.unknown": "Unknown",

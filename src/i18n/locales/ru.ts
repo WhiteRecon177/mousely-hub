@@ -12,6 +12,7 @@ export const ru: Record<Key, string> = {
   "common.edit": "Изменить",
   "common.stop": "Стоп",
   "common.remove": "Убрать",
+  "common.close": "Закрыть",
   "common.on": "ВКЛ",
   "common.off": "ВЫКЛ",
   "common.unknown": "Неизвестно",

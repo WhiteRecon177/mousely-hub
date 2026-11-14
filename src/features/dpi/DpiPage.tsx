@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from "react";
 import "../mouse/mouse.css";
 import "./dpi.css";
 import { useDpi } from "./hooks/useDpi";
 import { DeviceCard, CONNECTION_KEYS } from "./components/DeviceCard";
+import { DiagnosticsDialog } from "./components/DiagnosticsDialog";
 import { DpiCard } from "./components/DpiCard";
 import { PollingCard } from "./components/PollingCard";
 import { DPI_WRITE_ENABLED, POLLING_WRITE_ENABLED } from "./services/dpiApi";
@@ -16,8 +16,6 @@ export function DpiPage() {
   const dpi = useDpi();
   const { info } = dpi;
   const ready = info !== null && info.connected;
-  const [copied, setCopied] = useState(false);
-  const copyTimer = useRef<number | undefined>(undefined);
 
   const canReset =
     info !== null &&
@@ -26,32 +24,6 @@ export function DpiPage() {
     POLLING_WRITE_ENABLED &&
     info.capabilities.dpiWrite &&
     info.capabilities.pollingWrite;
-
-  useEffect(
-    () => () => {
-      window.clearTimeout(copyTimer.current);
-    },
-    []
-  );
-
-  async function copyReport(): Promise<void> {
-    const report = [
-      `Brand: ${info?.brand ?? "Unknown"}`,
-      `Name: ${info?.name ?? "Unknown"}`,
-      `Capabilities: ${JSON.stringify(info?.capabilities ?? null)}`,
-      "",
-      ...dpi.diagnostics,
-    ].join("\n");
-
-    try {
-      await navigator.clipboard.writeText(report);
-      window.clearTimeout(copyTimer.current);
-      setCopied(true);
-      copyTimer.current = window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setCopied(false);
-    }
-  }
 
   return (
     <div className="dd-dpi-page">
@@ -146,34 +118,12 @@ export function DpiPage() {
           </span>
 
           <div className="dd-dpi-footer-actions">
-            <details className="dd-dpi-diag">
-              <summary className="dd-dpi-diag-summary">{t("diag.title")}</summary>
-
-              <div className="dd-dpi-diag-panel">
-                <div className="dd-dpi-diagnostics-actions">
-                  <button
-                    type="button"
-                    className="dd-dpi-ghost"
-                    disabled={dpi.loading}
-                    onClick={() => void dpi.refresh()}
-                  >
-                    {dpi.loading ? t("diag.reading") : t("diag.refresh")}
-                  </button>
-
-                  <button
-                    type="button"
-                    className="dd-dpi-ghost"
-                    onClick={() => void copyReport()}
-                  >
-                    {copied ? t("diag.copied") : t("diag.copyReport")}
-                  </button>
-                </div>
-
-                <pre className="dd-dpi-diagnostics-log">
-                  {dpi.diagnostics.join("\n")}
-                </pre>
-              </div>
-            </details>
+            <DiagnosticsDialog
+              info={info}
+              diagnostics={dpi.diagnostics}
+              loading={dpi.loading}
+              onRefresh={dpi.refresh}
+            />
 
             <button
               type="button"

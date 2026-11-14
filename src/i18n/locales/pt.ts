@@ -12,6 +12,7 @@ export const pt: Record<Key, string> = {
   "common.edit": "Editar",
   "common.stop": "Parar",
   "common.remove": "Remover",
+  "common.close": "Fechar",
   "common.on": "ATIVADO",
   "common.off": "DESATIVADO",
   "common.unknown": "Desconhecido",

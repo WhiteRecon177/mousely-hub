@@ -207,79 +207,223 @@
   color: var(--muted);
 }
 
-.dd-dpi-diagnostics-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.dd-dpi-diagnostics-log {
-  margin-bottom: 0;
-  color: var(--muted);
-  font-size: 11px;
-  white-space: pre-wrap;
-  user-select: text;
-}
-
 .dd-dpi-page {
   position: relative;
 }
 
-.dd-dpi-diag {
-  position: relative;
-  z-index: 5;
-}
-
-.dd-dpi-diag-summary {
-  padding: 3px 10px;
+.dd-dpi-diag-trigger {
   color: var(--muted);
-  font-size: 12px;
-  list-style: none;
-  background-color: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  cursor: pointer;
-  user-select: none;
 }
 
-.dd-dpi-diag-summary::-webkit-details-marker {
-  display: none;
-}
-
-.dd-dpi-diag-summary::after {
-  content: " \25B4";
-}
-
-.dd-dpi-diag[open] .dd-dpi-diag-summary::after {
-  content: " \25BE";
-}
-
-.dd-dpi-diag-summary:hover {
+.dd-dpi-diag-trigger:hover:not(:disabled) {
   color: var(--text);
-  border-color: var(--accent);
+  border-color: var(--holo);
 }
 
-.dd-dpi-diag-panel {
-  position: absolute;
-  bottom: calc(100% + 6px);
-  right: 0;
-  width: min(560px, calc(100vw - 48px));
-  max-height: 60vh;
-  padding: 12px;
-  overflow: auto;
-  background-color: var(--panel);
+/* Diagnostics modal dialog (top-layer, immune to .dd-dpi-right scroll clipping) */
+.dd-diag-dialog {
+  position: fixed;
+  inset: 0;
+  box-sizing: border-box;
+  margin: auto;
+  padding: 0;
+  width: min(640px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
+  color: var(--text);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  border-radius: 22px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.58), 0 0 0 1px color-mix(in srgb, var(--holo) 14%, transparent);
+  backdrop-filter: blur(16px);
+  opacity: 0;
+  transition-property: opacity, transform, display, overlay;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
 }
 
+[data-theme="ice"] .dd-diag-dialog {
+  box-shadow: 0 20px 50px rgba(10, 70, 110, 0.18), inset 0 1px 0 #ffffff;
+}
 
+.dd-diag-dialog:modal {
+  overscroll-behavior: contain;
+}
 
-.dd-dpi-diagnostics-log {
-  margin: 10px 0 0;
+@media (prefers-reduced-motion: no-preference) {
+  .dd-diag-dialog {
+    transform: scale(0.96) translateY(8px);
+  }
+}
+
+.dd-diag-dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(4, 7, 18, 0);
+  backdrop-filter: blur(0px);
+  transition-property: background-color, backdrop-filter, display, overlay;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-out;
+  transition-behavior: allow-discrete;
+}
+
+.dd-diag-dialog[open] {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dd-diag-dialog[open]:where(:not([data-closing])) {
+  opacity: 1;
+
+  @starting-style {
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    transform: scale(1) translateY(0);
+
+    @starting-style {
+      transform: scale(0.96) translateY(8px);
+    }
+  }
+}
+
+.dd-diag-dialog[open]:where(:not([data-closing]))::backdrop {
+  background-color: rgba(4, 7, 18, 0.62);
+  backdrop-filter: blur(6px);
+
+  @starting-style {
+    background-color: rgba(4, 7, 18, 0);
+    backdrop-filter: blur(0px);
+  }
+}
+
+[data-theme="ice"] .dd-diag-dialog[open]:where(:not([data-closing]))::backdrop {
+  background-color: rgba(12, 38, 51, 0.36);
+
+  @starting-style {
+    background-color: rgba(12, 38, 51, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dd-diag-dialog,
+  .dd-diag-dialog::backdrop {
+    transition-duration: 0.1s;
+  }
+
+  .dd-diag-close,
+  .dd-diag-btn {
+    transition: none;
+  }
+}
+
+.dd-diag-head {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dd-diag-head-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dd-diag-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--text);
+}
+
+.dd-diag-sub {
+  overflow-wrap: anywhere;
+}
+
+.dd-diag-close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   color: var(--muted);
-  font-size: 11px;
+  background: var(--card-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: color 0.14s ease, border-color 0.14s ease, background-color 0.14s ease;
+}
+
+.dd-diag-close:hover {
+  color: var(--text);
+  border-color: var(--holo);
+  background: var(--hover);
+}
+
+.dd-diag-actions {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 0;
+}
+
+.dd-diag-btn {
+  padding: 7px 14px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  white-space: nowrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease;
+}
+
+.dd-diag-btn:hover:not(:disabled) {
+  border-color: var(--holo);
+  background: var(--card-2);
+}
+
+.dd-diag-btn--copied,
+.dd-diag-btn--copied:hover:not(:disabled) {
+  color: var(--good);
+  border-color: color-mix(in srgb, var(--good) 55%, var(--border));
+}
+
+.dd-diag-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 12px 18px 18px;
+  padding: 12px 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  background: color-mix(in srgb, var(--bg-deep) 78%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  color: color-mix(in srgb, var(--text) 84%, var(--muted));
+  font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+  font-size: 11.5px;
+  line-height: 1.5;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
   user-select: text;
 }
 
@@ -1093,7 +1237,9 @@
 
 .dd-poll-tile:focus-visible,
 .dd-dpi-ghost:focus-visible,
-.dd-dpi-diag-summary:focus-visible {
+.dd-diag-close:focus-visible,
+.dd-diag-btn:focus-visible,
+.dd-diag-log:focus-visible {
   outline: 2px solid var(--holo);
   outline-offset: 2px;
 }
@@ -1147,13 +1293,6 @@
   white-space: nowrap;
   background: var(--card);
   border: 1px solid var(--border);
-}
-
-.dd-dpi-diag-summary {
-  padding: clamp(6px, 1.3dvh, 9px) 16px;
-  font-size: 13px;
-  white-space: nowrap;
-  border-radius: 999px;
 }
 
 /* ---- short viewport compression (keep before container queries so narrow cards still stack) ---- */
