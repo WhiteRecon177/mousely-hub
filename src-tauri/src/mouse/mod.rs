@@ -6,7 +6,15 @@ pub mod hidpp;
 
 use serde::Serialize;
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ValueSource {
+    Hardware,
+    Saved,
+    Unset,
+}
+
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MouseCapabilitiesDto {
     pub battery: bool,
@@ -28,7 +36,7 @@ impl MouseCapabilitiesDto {
     }
 }
 
-#[derive(Serialize, Clone, Copy, Debug)]
+#[derive(Serialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum SupportLevel {
     Tested,
@@ -38,9 +46,10 @@ pub enum SupportLevel {
     Unknown,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct MouseInfoDto {
+    pub id: String,
     pub connected: bool,
     pub name: String,
     pub connection: String,
@@ -51,16 +60,21 @@ pub struct MouseInfoDto {
     pub dpi_max: u32,
     pub dpi_step: u32,
     pub dpi_levels: Vec<u32>,
+    pub dpi_source: ValueSource,
     pub polling_rate: u32,
     pub polling_options: Vec<u32>,
     pub polling_supported: Vec<u32>,
+    pub polling_source: ValueSource,
     pub brand: String,
     pub capabilities: MouseCapabilitiesDto,
     pub support: SupportLevel,
 }
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Clone, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProbeResult {
     pub info: MouseInfoDto,
     pub diagnostics: Vec<String>,
+    pub devices: Vec<MouseInfoDto>,
+    pub active_id: Option<String>,
 }

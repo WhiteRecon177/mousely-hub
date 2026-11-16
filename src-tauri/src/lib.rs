@@ -50,6 +50,7 @@ pub fn run() {
             settings::set_close_to_tray,
             settings::export_hid_info,
             mouse::commands::get_mouse_info,
+            mouse::commands::select_active_mouse,
             mouse::commands::set_polling_rate,
             mouse::commands::set_mouse_dpi,
             remap::commands::set_mouse_mappings,

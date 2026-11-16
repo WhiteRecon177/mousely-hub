@@ -3,6 +3,7 @@ import { useT, type Key } from "../../../i18n";
 
 interface DeviceCardProps {
   info: MouseInfo | null;
+  scanning?: boolean;
 }
 
 export const CONNECTION_KEYS: Record<ConnectionType, Key> = {
@@ -53,9 +54,10 @@ function ConnectionIcon({ type }: { type: ConnectionType }) {
 }
 
 /** Status strip: state, connection and battery of the mouse. */
-export function DeviceCard({ info }: DeviceCardProps) {
+export function DeviceCard({ info, scanning = false }: DeviceCardProps) {
   const t = useT();
   const connected = info !== null && info.connected;
+  const looking = !connected && (info === null || scanning);
   const hasBattery = connected && info.capabilities.battery && info.battery !== null && info.connection !== "wired";
   const pct = hasBattery ? Math.max(0, Math.min(100, info.battery ?? 0)) : 0;
 
@@ -65,8 +67,16 @@ export function DeviceCard({ info }: DeviceCardProps) {
         <div className="dd-st-cell">
           <div className="dd-micro">{t("dev.state")}</div>
           <div className="dd-st-value">
-            <span className={connected ? "dd-st-dot" : "dd-st-dot dd-st-dot--off"} />
-            {info === null ? t("device.looking") : connected ? t("dev.detectedShort") : t("device.none")}
+            <span
+              className={
+                connected
+                  ? "dd-st-dot"
+                  : looking
+                  ? "dd-st-dot dd-st-dot--scan"
+                  : "dd-st-dot dd-st-dot--off"
+              }
+            />
+            {connected ? t("dev.detectedShort") : looking ? t("device.looking") : t("device.none")}
           </div>
         </div>
 

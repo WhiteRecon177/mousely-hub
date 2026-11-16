@@ -1,5 +1,6 @@
 export type ConnectionType = "wired" | "wireless" | "bluetooth" | "unknown";
 export type MouseSupport = "tested" | "expected" | "recognized" | "unknown";
+export type ValueSource = "hardware" | "saved" | "unset";
 
 export interface MouseCapabilities {
   battery: boolean;
@@ -10,17 +11,20 @@ export interface MouseCapabilities {
 }
 
 export interface MouseInfo {
+  id: string;
   connected: boolean;
   name: string;
   connection: ConnectionType;
   battery: number | null;
   charging: boolean;
   dpi: number;
+  dpiSource: ValueSource;
   dpiMin: number;
   dpiMax: number;
   dpiStep: number;
   dpiLevels: number[];
   pollingRate: number;
+  pollingSource: ValueSource;
   pollingOptions: number[];
   pollingSupported: number[];
   brand: string;

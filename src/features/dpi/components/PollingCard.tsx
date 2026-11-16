@@ -23,26 +23,41 @@ export function PollingCard({ info, disabled, onChange }: PollingCardProps) {
         <span className="dd-card-title">{t("polling.title")}</span>
         <span className="dd-micro">{unknown ? t("polling.notReported") : t("polling.maxNow", { hz: maxSupported })}</span>
       </div>
+      {info.pollingSource !== "hardware" && (
+        <div
+          className={
+            info.pollingSource === "unset"
+              ? "dd-dpi-source-note dd-dpi-source-note--unset"
+              : "dd-dpi-source-note dd-dpi-source-note--saved"
+          }
+        >
+          <span className="dd-source-dot" aria-hidden="true" />
+          <span>{t(info.pollingSource === "unset" ? "source.unset" : "source.saved")}</span>
+        </div>
+      )}
       <div
         className="dd-poll-grid"
         data-count={Math.max(1, options.length)}
         style={{ "--n": Math.max(1, options.length) } as CSSProperties}
       >
-        {options.map((hz) => (
-          <button
-            key={hz}
-            type="button"
-            className={hz === info.pollingRate ? "dd-poll-tile dd-poll-tile--active" : "dd-poll-tile"}
-            disabled={disabled}
-            onClick={() => onChange(hz)}
-          >
-            <span className="dd-poll-hz">
-              {hz}
-              <small>Hz</small>
-            </span>
-            <span className="dd-micro dd-poll-ms">{ms(hz)}</span>
-          </button>
-        ))}
+        {options.map((hz) => {
+          const active = info.pollingRate > 0 && hz === info.pollingRate;
+          return (
+            <button
+              key={hz}
+              type="button"
+              className={active ? "dd-poll-tile dd-poll-tile--active" : "dd-poll-tile"}
+              disabled={disabled}
+              onClick={() => onChange(hz)}
+            >
+              <span className="dd-poll-hz">
+                {hz}
+                <small>Hz</small>
+              </span>
+              <span className="dd-micro dd-poll-ms">{ms(hz)}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

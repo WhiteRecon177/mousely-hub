@@ -23,10 +23,8 @@
 
 use hidapi::{HidApi, HidDevice};
 
-use std::sync::Mutex;
-
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::{MouseInfoDto, SupportLevel};
 
 const STEELSERIES_VID: u16 = 0x1038;
@@ -54,8 +52,6 @@ struct Model {
 const CMD_DPI: u8 = 0x2D;
 const CMD_POLLING: u8 = 0x2B;
 const DPI_STEP: u32 = 100;
-/// Shown before the user picks a DPI (the mouse cannot tell its real value).
-const START_DPI: u32 = 800;
 const POLLING_HZ: [u32; 4] = [125, 250, 500, 1000];
 
 /// Sensor code of every DPI value from 100 to 18000 in steps of 100 (180 values, TrueMove Air).
@@ -123,18 +119,6 @@ const MODELS: [Model; 15] = [
     Model { pid: 0x1874, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: true, has_battery: true, profile: &WIRELESS_PROFILE },
     Model { pid: 0x1876, name: "SteelSeries Aerox 9 Wireless WOW Edition", receiver: false, has_battery: true, profile: &WIRELESS_PROFILE },
 ];
-
-/// What the app has written in this run; the mouse cannot be asked for its DPI.
-static LAST_DPI: Mutex<Option<u32>> = Mutex::new(None);
-static LAST_POLLING: Mutex<Option<u32>> = Mutex::new(None);
-
-fn remember(slot: &Mutex<Option<u32>>, value: u32) {
-    *slot.lock().unwrap_or_else(|error| error.into_inner()) = Some(value);
-}
-
-fn recall(slot: &Mutex<Option<u32>>) -> Option<u32> {
-    *slot.lock().unwrap_or_else(|error| error.into_inner())
-}
 
 /// Nearest valid DPI (multiple of 100 within the sensor profile) and its sensor code.
 fn dpi_code_for(profile: &SensorProfile, value: u32) -> (u32, u8) {
@@ -265,23 +249,39 @@ fn send(device: &HidDevice, message: &[u8], receiver: bool) -> Result<(), String
     Err(last_error)
 }
 
-/// Opens the control interface of the first known SteelSeries mouse and sends one message.
-fn write_setting(build: impl Fn(&Model) -> Result<(u32, Vec<u8>), String>) -> Result<u32, String> {
+/// Opens the control interface of the matching SteelSeries mouse (preferring wired) and sends one message.
+fn write_setting(
+    target_id: Option<&str>,
+    build: impl Fn(&Model) -> Result<(u32, Vec<u8>), String>,
+) -> Result<u32, String> {
     let api = HidApi::new().map_err(|error| error.to_string())?;
     let mut failure = String::from("SteelSeries mouse not found");
 
-    for info in api.device_list() {
-        if info.vendor_id() != STEELSERIES_VID {
-            continue;
-        }
-        let Some(model) = model_for(info.product_id()) else {
-            continue;
-        };
-        let path = info.path().to_string_lossy().to_string();
-        if !is_control_interface(info.usage_page(), info.usage(), info.interface_number(), &path) {
-            continue;
-        }
+    let mut candidates: Vec<_> = api
+        .device_list()
+        .filter_map(|info| {
+            if info.vendor_id() != STEELSERIES_VID {
+                return None;
+            }
+            let model = model_for(info.product_id())?;
+            if let Some(expected_id) = target_id {
+                if canonical_id("steelseries-aerox", model.name) != expected_id {
+                    return None;
+                }
+            }
+            let path = info.path().to_string_lossy().to_string();
+            if !is_control_interface(info.usage_page(), info.usage(), info.interface_number(), &path)
+            {
+                return None;
+            }
+            Some((info, model))
+        })
+        .collect();
 
+    // Prefer wired interface over wireless receiver when both are plugged in.
+    candidates.sort_by_key(|(_, model)| model.receiver);
+
+    for (info, model) in candidates {
         let (applied, message) = build(model)?;
 
         let device = match info.open_device(&api) {
@@ -309,13 +309,14 @@ fn has_writes(model: &Model) -> bool {
 
 fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> MouseInfoDto {
     let mut info = readonly::build(Reading {
+        id: canonical_id("steelseries-aerox", model.name),
         brand: "SteelSeries",
         name: model.name.to_string(),
         connection: if model.receiver { "wireless" } else { "wired" },
         battery: if model.has_battery { battery } else { None },
         charging: model.has_battery && charging,
-        dpi: recall(&LAST_DPI),
-        polling: recall(&LAST_POLLING),
+        dpi: None,
+        polling: None,
     });
 
     if has_writes(model) {
@@ -326,16 +327,6 @@ fn describe(model: &'static Model, battery: Option<u32>, charging: bool) -> Mous
         info.polling_options = POLLING_HZ.to_vec();
         info.capabilities.dpi_write = true;
         info.capabilities.polling_write = true;
-        // The mouse cannot be asked for its DPI or polling rate, so without this the screen
-        // said "DPI not available" until something had been written. The controls are shown
-        // from the start; DPI begins at a usual value (the real one is unknown until the user
-        // picks one) and no polling tile is marked until the user chooses.
-        info.capabilities.dpi_read = true;
-        info.capabilities.polling_read = true;
-        if info.dpi == 0 {
-            info.dpi = START_DPI.clamp(model.profile.dpi_min, model.profile.dpi_max);
-        }
-        // the levels are the ones the user keeps in the app, not a single read-only one
         info.dpi_levels = Vec::new();
     }
 
@@ -363,7 +354,12 @@ impl MouseDriver for SteelSeriesDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
-        let mut first_model: Option<&'static Model> = None;
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found: Vec<MouseInfoDto> = Vec::new();
+        let mut fallback_models: Vec<&'static Model> = Vec::new();
 
         for info in api.device_list() {
             if info.vendor_id() != STEELSERIES_VID {
@@ -372,7 +368,7 @@ impl MouseDriver for SteelSeriesDriver {
             let Some(model) = model_for(info.product_id()) else {
                 continue;
             };
-            first_model.get_or_insert(model);
+            fallback_models.push(model);
 
             let path = info.path().to_string_lossy().to_string();
             if !is_control_interface(info.usage_page(), info.usage(), info.interface_number(), &path) {
@@ -387,7 +383,8 @@ impl MouseDriver for SteelSeriesDriver {
                     info.interface_number(),
                     info.usage_page()
                 ));
-                return Some(describe(model, None, false));
+                merge_device(&mut found, describe(model, None, false));
+                continue;
             }
 
             log.push(format!(
@@ -414,15 +411,29 @@ impl MouseDriver for SteelSeriesDriver {
                 _ => (None, false),
             };
 
-            return Some(describe(model, battery, charging));
+            merge_device(&mut found, describe(model, battery, charging));
         }
 
-        // Plugged in but no interface answered: show the model anyway, without values.
-        first_model.map(|model| describe(model, None, false))
+        // Plugged in but no control interface answered: show the model anyway, without values.
+        for model in fallback_models {
+            let id = canonical_id("steelseries-aerox", model.name);
+            if !found.iter().any(|d| d.id == id) {
+                merge_device(&mut found, describe(model, None, false));
+            }
+        }
+
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, _probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        api.device_list()
+            .filter(|d| d.vendor_id() == STEELSERIES_VID && model_for(d.product_id()).is_some())
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
-        let applied = write_setting(|model| {
+        write_setting(None, |model| {
             let msg = polling_message_for(model.profile, model.receiver, hz).ok_or_else(|| {
                 format!(
                     "{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)",
@@ -430,21 +441,38 @@ impl MouseDriver for SteelSeriesDriver {
                 )
             })?;
             Ok((hz, msg))
-        })?;
-        remember(&LAST_POLLING, applied);
-        Ok(applied)
+        })
     }
 
     fn set_dpi(&self, value: u32) -> Result<u32, String> {
-        let applied = write_setting(|model| Ok(dpi_message_for(model.profile, model.receiver, value)))?;
-        remember(&LAST_DPI, applied);
-        Ok(applied)
+        write_setting(None, |model| {
+            Ok(dpi_message_for(model.profile, model.receiver, value))
+        })
+    }
+
+    fn set_polling_for(&self, device_id: &str, hz: u32) -> Result<u32, String> {
+        write_setting(Some(device_id), |model| {
+            let msg = polling_message_for(model.profile, model.receiver, hz).ok_or_else(|| {
+                format!(
+                    "{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)",
+                    hz
+                )
+            })?;
+            Ok((hz, msg))
+        })
+    }
+
+    fn set_dpi_for(&self, device_id: &str, value: u32) -> Result<u32, String> {
+        write_setting(Some(device_id), |model| {
+            Ok(dpi_message_for(model.profile, model.receiver, value))
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mouse::ValueSource;
 
     #[test]
     fn command_bytes() {
@@ -585,13 +613,18 @@ mod tests {
 
     #[test]
     fn dpi_and_polling_controls_are_shown_from_the_start() {
-        // Aerox 3 Wireless: the mouse cannot report DPI, but the screen must still offer it.
+        // Aerox 3 Wireless: the mouse cannot report DPI or polling rate, so capabilities.read is
+        // truthfully false and write is true; values start unset (0) until prefs/user set them.
         let model = model_for(0x183A).expect("Aerox 3 Wireless is known");
         let info = describe(model, None, false);
+        assert_eq!(info.id, "steelseries-aerox:steelseries-aerox-3-wireless");
         assert_eq!(info.connection, "wired");
-        assert!(info.capabilities.dpi_read && info.capabilities.dpi_write);
-        assert!(info.capabilities.polling_read && info.capabilities.polling_write);
-        assert_eq!(info.dpi, START_DPI);
+        assert!(!info.capabilities.dpi_read && info.capabilities.dpi_write);
+        assert!(!info.capabilities.polling_read && info.capabilities.polling_write);
+        assert_eq!(info.dpi, 0);
+        assert_eq!(info.polling_rate, 0);
+        assert_eq!(info.dpi_source, ValueSource::Unset);
+        assert_eq!(info.polling_source, ValueSource::Unset);
         assert_eq!((info.dpi_min, info.dpi_max, info.dpi_step), (100, 18000, 100));
         assert!(info.dpi_levels.is_empty());
         assert!(matches!(info.support, SupportLevel::Expected));
@@ -600,13 +633,14 @@ mod tests {
         // Aerox 3 Wired: no battery, TrueMove Core range 200..=8500.
         let wired = model_for(0x1836).expect("Aerox 3 wired is known");
         let wired_info = describe(wired, Some(50), true);
+        assert_eq!(wired_info.id, "steelseries-aerox:steelseries-aerox-3");
         assert_eq!(wired_info.connection, "wired");
         assert!(!wired_info.capabilities.battery);
         assert_eq!(wired_info.battery, None);
         assert!(!wired_info.charging);
-        assert!(wired_info.capabilities.dpi_read && wired_info.capabilities.dpi_write);
-        assert!(wired_info.capabilities.polling_read && wired_info.capabilities.polling_write);
-        assert_eq!(wired_info.dpi, START_DPI);
+        assert!(!wired_info.capabilities.dpi_read && wired_info.capabilities.dpi_write);
+        assert!(!wired_info.capabilities.polling_read && wired_info.capabilities.polling_write);
+        assert_eq!(wired_info.dpi, 0);
         assert_eq!((wired_info.dpi_min, wired_info.dpi_max, wired_info.dpi_step), (200, 8500, 100));
         assert!(matches!(wired_info.support, SupportLevel::Tested));
         assert_eq!(wired_info.polling_supported, vec![125, 250, 500, 1000]);

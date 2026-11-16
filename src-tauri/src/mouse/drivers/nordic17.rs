@@ -11,7 +11,7 @@
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const PULSAR_VID: u16 = 0x3710;
@@ -121,6 +121,11 @@ impl MouseDriver for PulsarNordicDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found = Vec::new();
         for info in api.device_list() {
             if info.vendor_id() != PULSAR_VID {
                 continue;
@@ -131,6 +136,10 @@ impl MouseDriver for PulsarNordicDriver {
 
             // The notes do not say which interface answers, so only vendor-defined ones are tried.
             if info.usage_page() < 0xFF00 {
+                continue;
+            }
+            let id = canonical_id("pulsar-nordic17", model.name);
+            if found.iter().any(|d: &MouseInfoDto| d.id == id && d.connection == "wired") {
                 continue;
             }
 
@@ -176,7 +185,8 @@ impl MouseDriver for PulsarNordicDriver {
                 polling, index, dpi, battery
             ));
 
-            return Some(readonly::build(Reading {
+            merge_device(&mut found, readonly::build(Reading {
+                id,
                 brand: "Pulsar",
                 name: model.name.to_string(),
                 connection: if model.wired { "wired" } else { "wireless" },
@@ -186,7 +196,17 @@ impl MouseDriver for PulsarNordicDriver {
                 polling,
             }));
         }
-        None
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        if probed.is_empty() {
+            return Vec::new();
+        }
+        api.device_list()
+            .filter(|d| d.vendor_id() == PULSAR_VID && model_for(d.product_id()).is_some())
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, _hz: u32) -> Result<u32, String> {

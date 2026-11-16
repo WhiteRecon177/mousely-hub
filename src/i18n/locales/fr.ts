@@ -59,6 +59,9 @@ export const fr: Record<Key, string> = {
   "mouse.resetDefault": "Rétablir par défaut",
   "device.looking": "Recherche de la souris...",
   "device.none": "Aucune souris détectée",
+  "device.rescan": "Rechercher à nouveau",
+  "device.notFoundHint": "Vérifiez que la souris ou le récepteur est connecté et actif.",
+  "device.switch": "Souris connectées",
   "device.detected": "Souris détectée",
   "device.wired": "Filaire",
   "device.wireless": "Sans fil",
@@ -178,4 +181,6 @@ export const fr: Record<Key, string> = {
   "dev.model": "Modèle",
   "dev.detectedShort": "Détecté",
   "dev.footer": "Open source · MIT · Aucune télémétrie",
+  "source.saved": "Dernier enregistré — non lisible depuis la souris",
+  "source.unset": "Pas encore défini — choisissez une valeur",
 };

@@ -1,8 +1,8 @@
 use hidapi::HidApi;
 
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::hidpp::{Hidpp, HidppError};
-use crate::mouse::{MouseCapabilitiesDto, MouseInfoDto, SupportLevel};
+use crate::mouse::{MouseCapabilitiesDto, MouseInfoDto, SupportLevel, ValueSource};
 
 const LOGITECH_VID: u16 = 0x046D;
 const HIDPP_USAGE_PAGE: u16 = 0xFF00;
@@ -33,6 +33,10 @@ impl MouseDriver for LogitechDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
         let mut candidates = Vec::new();
 
         for device in api.device_list() {
@@ -55,8 +59,10 @@ impl MouseDriver for LogitechDriver {
 
         if candidates.is_empty() {
             log.push("No Logitech HID++ interface found.".to_string());
-            return None;
+            return Vec::new();
         }
+
+        let mut found = Vec::new();
 
         for info in candidates {
             let product = info.product_string().unwrap_or("").to_string();
@@ -105,21 +111,46 @@ impl MouseDriver for LogitechDriver {
                 };
 
                 if let Some(mouse) = read_mouse(&hidpp, index, connection, self.brand(), log) {
-                    return Some(mouse);
+                    merge_device(&mut found, mouse);
+                    break;
                 }
             }
         }
 
-        log.push("No mouse with adjustable DPI answered.".to_string());
-        None
+        if found.is_empty() {
+            log.push("No mouse with adjustable DPI answered.".to_string());
+        }
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        if probed.is_empty() {
+            return Vec::new();
+        }
+        api.device_list()
+            .filter(|d| {
+                d.vendor_id() == LOGITECH_VID
+                    && d.usage_page() == HIDPP_USAGE_PAGE
+                    && d.usage() == HIDPP_LONG_USAGE
+            })
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
-        set_polling(hz)
+        set_polling(None, hz)
     }
 
     fn set_dpi(&self, value: u32) -> Result<u32, String> {
-        set_dpi(value)
+        set_dpi(None, value)
+    }
+
+    fn set_polling_for(&self, device_id: &str, hz: u32) -> Result<u32, String> {
+        set_polling(Some(device_id), hz)
+    }
+
+    fn set_dpi_for(&self, device_id: &str, value: u32) -> Result<u32, String> {
+        set_dpi(Some(device_id), value)
     }
 }
 
@@ -433,6 +464,7 @@ fn read_mouse(
     };
 
     Some(MouseInfoDto {
+        id: canonical_id("logitech", &name),
         connected: true,
         name,
         connection: connection.to_string(),
@@ -443,9 +475,19 @@ fn read_mouse(
         dpi_max,
         dpi_step,
         dpi_levels,
+        dpi_source: if capabilities.dpi_read {
+            ValueSource::Hardware
+        } else {
+            ValueSource::Unset
+        },
         polling_rate,
         polling_options: POLLING_OPTIONS.to_vec(),
         polling_supported,
+        polling_source: if capabilities.polling_read {
+            ValueSource::Hardware
+        } else {
+            ValueSource::Unset
+        },
         brand: brand.to_string(),
         capabilities,
         support,
@@ -928,9 +970,18 @@ fn set_polling_classic(hp: &Hidpp, index: u8, feature: u8, hz: u32) -> PollingOu
     })
 }
 
+fn matches_target_id(hp: &Hidpp, index: u8, target_id: Option<&str>) -> bool {
+    let Some(expected) = target_id else {
+        return true;
+    };
+    let mut ignored = Vec::new();
+    let name = read_name(hp, index, &mut ignored).unwrap_or_else(|| "Logitech mouse".to_string());
+    canonical_id("logitech", &name) == expected
+}
+
 /// Sets the polling rate through the extended (0x8061) or classic (0x8060) report rate feature
 /// and checks it by reading it back.
-fn set_polling(hz: u32) -> Result<u32, String> {
+fn set_polling(target_id: Option<&str>, hz: u32) -> Result<u32, String> {
     if !EXT_RATES_HZ.contains(&hz) && classic_polling_ms(hz).is_none() {
         return Err(format!("{} Hz is not a valid polling rate", hz));
     }
@@ -962,6 +1013,9 @@ fn set_polling(hz: u32) -> Result<u32, String> {
                 .request(index, 0x00, 1, &[0x00, 0x00, 0x5A], 200)
                 .is_err()
             {
+                continue;
+            }
+            if !matches_target_id(&hp, index, target_id) {
                 continue;
             }
 
@@ -1068,7 +1122,7 @@ fn set_dpi_ext(hp: &Hidpp, index: u8, feature: u8, value: u32) -> Result<u32, St
 }
 
 /// Sets the DPI through the classic (0x2201) or extended (0x2202) DPI feature and checks it by reading it back.
-fn set_dpi(value: u32) -> Result<u32, String> {
+fn set_dpi(target_id: Option<&str>, value: u32) -> Result<u32, String> {
     if !(50..=100_000).contains(&value) {
         return Err(format!("{} DPI is not a valid value", value));
     }
@@ -1094,6 +1148,9 @@ fn set_dpi(value: u32) -> Result<u32, String> {
                 .request(index, 0x00, 1, &[0x00, 0x00, 0x5A], 200)
                 .is_err()
             {
+                continue;
+            }
+            if !matches_target_id(&hp, index, target_id) {
                 continue;
             }
 

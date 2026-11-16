@@ -12,14 +12,13 @@
 //! DPI is NOT written: it belongs to numbered profiles and the active profile cannot be read, so a
 //! write could change another profile than the one in use. Nothing else is ever sent.
 
-use std::sync::Mutex;
 use std::thread::sleep;
 use std::time::Duration;
 
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const VID: u16 = 0x258A;
@@ -38,8 +37,6 @@ const MODELS: [Model; 4] = [
     Model { name: "Glorious Model D Wireless", pid_wired: 0x2012, pid_wireless: 0x2023 },
     Model { name: "Glorious Model D- Wireless", pid_wired: 0x2014, pid_wireless: 0x2025 },
 ];
-
-static LAST_POLLING: Mutex<Option<u32>> = Mutex::new(None);
 
 /// (model, wired)
 fn model_for(pid: u16) -> Option<(&'static Model, bool)> {
@@ -112,6 +109,7 @@ fn read_battery(device: &HidDevice) -> Battery {
 
 fn describe(model: &'static Model, wired: bool, battery: Option<u32>) -> MouseInfoDto {
     let mut info = readonly::build(Reading {
+        id: canonical_id("glorious-model-o", model.name),
         brand: "Glorious",
         name: model.name.to_string(),
         connection: if wired { "wired" } else { "wireless" },
@@ -119,12 +117,44 @@ fn describe(model: &'static Model, wired: bool, battery: Option<u32>) -> MouseIn
         // On the cable the mouse charges (unless full)
         charging: wired && battery.map_or(false, |percent| percent < 100),
         dpi: None,
-        polling: *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()),
+        polling: None,
     });
     info.polling_options = POLLING_HZ.to_vec();
     info.polling_supported = POLLING_HZ.to_vec();
     info.capabilities.polling_write = true;
     info
+}
+
+fn write_polling(target_id: Option<&str>, hz: u32) -> Result<u32, String> {
+    let request = polling_request(hz)
+        .ok_or_else(|| format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz))?;
+    let api = HidApi::new().map_err(|error| error.to_string())?;
+    let mut candidates: Vec<_> = api
+        .device_list()
+        .filter_map(|info| {
+            if info.vendor_id() != VID || info.interface_number() != INTERFACE {
+                return None;
+            }
+            let (model, wired) = model_for(info.product_id())?;
+            if let Some(expected_id) = target_id {
+                if canonical_id("glorious-model-o", model.name) != expected_id {
+                    return None;
+                }
+            }
+            Some((info, wired))
+        })
+        .collect();
+    candidates.sort_by_key(|(_, wired)| !*wired);
+
+    for (info, _) in candidates {
+        let device = match info.open_device(&api) {
+            Ok(device) => device,
+            Err(_) => continue,
+        };
+        device.send_feature_report(&request).map_err(|error| error.to_string())?;
+        return Ok(hz);
+    }
+    Err("Glorious mouse not found".to_string())
 }
 
 pub struct GloriousDriver;
@@ -143,7 +173,12 @@ impl MouseDriver for GloriousDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
-        let mut first: Option<(&'static Model, bool)> = None;
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found: Vec<MouseInfoDto> = Vec::new();
+        let mut fallback: Vec<(&'static Model, bool)> = Vec::new();
 
         // Prefer the cable when both are present
         let mut candidates: Vec<_> = api
@@ -153,9 +188,15 @@ impl MouseDriver for GloriousDriver {
         candidates.sort_by_key(|d| !model_for(d.product_id()).map_or(false, |(_, wired)| wired));
 
         for info in candidates {
-            let (model, wired) = model_for(info.product_id())?;
-            first.get_or_insert((model, wired));
+            let Some((model, wired)) = model_for(info.product_id()) else {
+                continue;
+            };
+            fallback.push((model, wired));
             if info.interface_number() != INTERFACE {
+                continue;
+            }
+            let id = canonical_id("glorious-model-o", model.name);
+            if found.iter().any(|d| d.id == id) {
                 continue;
             }
             log.push(format!("Glorious {:04X}:{:04X}: asking the battery", VID, info.product_id()));
@@ -169,29 +210,32 @@ impl MouseDriver for GloriousDriver {
             let battery = read_battery(&device);
             log.push(format!("  battery answer: {:?}", battery));
             let percent = if let Battery::Level(percent) = battery { Some(percent) } else { None };
-            return Some(describe(model, wired, percent));
+            merge_device(&mut found, describe(model, wired, percent));
         }
 
-        first.map(|(model, wired)| describe(model, wired, None))
+        for (model, wired) in fallback {
+            let id = canonical_id("glorious-model-o", model.name);
+            if !found.iter().any(|d| d.id == id) {
+                merge_device(&mut found, describe(model, wired, None));
+            }
+        }
+
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, _probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        api.device_list()
+            .filter(|d| d.vendor_id() == VID && model_for(d.product_id()).is_some())
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
-        let request = polling_request(hz)
-            .ok_or_else(|| format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz))?;
-        let api = HidApi::new().map_err(|error| error.to_string())?;
-        for info in api.device_list() {
-            if info.vendor_id() != VID || model_for(info.product_id()).is_none() || info.interface_number() != INTERFACE {
-                continue;
-            }
-            let device = match info.open_device(&api) {
-                Ok(device) => device,
-                Err(_) => continue,
-            };
-            device.send_feature_report(&request).map_err(|error| error.to_string())?;
-            *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()) = Some(hz);
-            return Ok(hz);
-        }
-        Err("Glorious mouse not found".to_string())
+        write_polling(None, hz)
+    }
+
+    fn set_polling_for(&self, device_id: &str, hz: u32) -> Result<u32, String> {
+        write_polling(Some(device_id), hz)
     }
 
     fn set_dpi(&self, _value: u32) -> Result<u32, String> {

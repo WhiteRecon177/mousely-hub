@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { MouseInfo } from "../types";
 import { useT } from "../../../i18n";
 
@@ -43,16 +43,18 @@ export function DpiCard({
 }: DpiCardProps) {
   const t = useT();
   const customInputId = useId();
-  const baseDpi = dpi > 0 ? dpi : info.dpiMin;
-  const clampedDpi = Math.min(info.dpiMax, Math.max(info.dpiMin, baseDpi));
-  const [customText, setCustomText] = useState(() => String(clampedDpi));
-  const [editingCustom, setEditingCustom] = useState(false);
+  const isUnset = dpi <= 0;
+  const unsetDefault = Math.min(info.dpiMax, Math.max(info.dpiMin, 800));
+  const clampedDpi = isUnset ? 0 : Math.min(info.dpiMax, Math.max(info.dpiMin, dpi));
+  const stepBase = isUnset ? unsetDefault : clampedDpi;
+  const [customText, setCustomText] = useState(() => (isUnset ? "" : String(clampedDpi)));
+  const editingCustomRef = useRef(false);
 
   useEffect(() => {
-    if (!editingCustom) {
-      setCustomText(String(clampedDpi));
+    if (!editingCustomRef.current) {
+      setCustomText(dpi > 0 ? String(clampedDpi) : "");
     }
-  }, [clampedDpi, editingCustom]);
+  }, [dpi, clampedDpi]);
 
   const customValue = Number(customText);
   const customValid = customText.trim() !== "" && Number.isFinite(customValue) && customValue > 0;
@@ -60,14 +62,18 @@ export function DpiCard({
 
   const stepCustom = (delta: number): void => {
     if (disabled) return;
-    const next = Math.min(info.dpiMax, Math.max(info.dpiMin, clampedDpi + delta));
-    if (next === clampedDpi) return;
+    const next = Math.min(info.dpiMax, Math.max(info.dpiMin, stepBase + delta));
+    if (dpi > 0 && next === stepBase) return;
+    editingCustomRef.current = false;
     setCustomText(String(next));
     onSelectStage(next);
   };
 
   const applyCustom = (): void => {
     if (disabled || !customValid) return;
+    editingCustomRef.current = false;
+    const rounded = Math.min(info.dpiMax, Math.max(info.dpiMin, Math.round(customValue / step) * step));
+    setCustomText(String(rounded));
     onSelectStage(customValue); // the hook rounds it to the mouse step and range
   };
 
@@ -97,7 +103,20 @@ export function DpiCard({
         </span>
       </div>
 
-      {readOnlyNote && <div className="dd-dpi-readonly">{readOnlyNote}</div>}
+      {readOnlyNote ? (
+        <div className="dd-dpi-readonly">{readOnlyNote}</div>
+      ) : info.dpiSource !== "hardware" ? (
+        <div
+          className={
+            info.dpiSource === "unset"
+              ? "dd-dpi-source-note dd-dpi-source-note--unset"
+              : "dd-dpi-source-note dd-dpi-source-note--saved"
+          }
+        >
+          <span className="dd-source-dot" aria-hidden="true" />
+          <span>{t(info.dpiSource === "unset" ? "source.unset" : "source.saved")}</span>
+        </div>
+      ) : null}
 
       <div className="dd-dpi-body">
         <div className="dd-ring-slot">
@@ -127,25 +146,28 @@ export function DpiCard({
               className={stageListClass}
               title={fromDevice ? t("dpi.levelsFromMouse") : undefined}
             >
-              {stages.map((stage, index) => (
-                <button
-                  key={stage}
-                  type="button"
-                  className={stage === dpi ? "dd-stage-row dd-stage-row--active" : "dd-stage-row"}
-                  disabled={disabled || outOfRange(stage)}
-                  title={outOfRange(stage) ? t("dpi.stageUnsupported", { min: info.dpiMin, max: info.dpiMax }) : undefined}
-                  onClick={() => onSelectStage(stage)}
-                >
-                  <span className="dd-stage-top">
-                    <span className="dd-stage-idx">{String(index + 1).padStart(2, "0")}</span>
-                    {stage === dpi && <span className="dd-stage-dot" />}
-                  </span>
-                  <span className="dd-stage-val">
-                    {stage}
-                    <small>DPI</small>
-                  </span>
-                </button>
-              ))}
+              {stages.map((stage, index) => {
+                const activeStage = dpi > 0 && stage === dpi;
+                return (
+                  <button
+                    key={stage}
+                    type="button"
+                    className={activeStage ? "dd-stage-row dd-stage-row--active" : "dd-stage-row"}
+                    disabled={disabled || outOfRange(stage)}
+                    title={outOfRange(stage) ? t("dpi.stageUnsupported", { min: info.dpiMin, max: info.dpiMax }) : undefined}
+                    onClick={() => onSelectStage(stage)}
+                  >
+                    <span className="dd-stage-top">
+                      <span className="dd-stage-idx">{String(index + 1).padStart(2, "0")}</span>
+                      {activeStage && <span className="dd-stage-dot" />}
+                    </span>
+                    <span className="dd-stage-val">
+                      {stage}
+                      <small>DPI</small>
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -166,7 +188,7 @@ export function DpiCard({
                 type="button"
                 className="dd-step-btn"
                 aria-label={`-${step} DPI`}
-                disabled={disabled || clampedDpi <= info.dpiMin}
+                disabled={disabled || stepBase <= info.dpiMin}
                 onClick={() => stepCustom(-step)}
               >
                 −
@@ -181,9 +203,14 @@ export function DpiCard({
                   max={info.dpiMax}
                   step={info.dpiStep}
                   value={customText}
+                  placeholder={isUnset ? String(unsetDefault) : undefined}
                   disabled={disabled}
-                  onFocus={() => setEditingCustom(true)}
-                  onBlur={() => setEditingCustom(false)}
+                  onFocus={() => {
+                    editingCustomRef.current = true;
+                  }}
+                  onBlur={() => {
+                    editingCustomRef.current = false;
+                  }}
                   onChange={(e) => setCustomText(e.target.value)}
                 />
                 <span className="dd-custom-unit" aria-hidden="true">
@@ -194,12 +221,17 @@ export function DpiCard({
                 type="button"
                 className="dd-step-btn"
                 aria-label={`+${step} DPI`}
-                disabled={disabled || clampedDpi >= info.dpiMax}
+                disabled={disabled || stepBase >= info.dpiMax}
                 onClick={() => stepCustom(step)}
               >
                 +
               </button>
-              <button type="submit" className="dd-custom-apply" disabled={disabled || !customValid}>
+              <button
+                type="submit"
+                className="dd-custom-apply"
+                disabled={disabled || !customValid}
+                onMouseDown={(e) => e.preventDefault()}
+              >
                 {t("dpi.apply")}
               </button>
             </div>

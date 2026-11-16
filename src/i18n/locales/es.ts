@@ -59,6 +59,9 @@ export const es: Record<Key, string> = {
   "mouse.resetDefault": "Restablecer valores",
   "device.looking": "Buscando ratón...",
   "device.none": "Ningún ratón detectado",
+  "device.rescan": "Buscar de nuevo",
+  "device.notFoundHint": "Asegúrate de que el ratón o el receptor estén conectados y activos.",
+  "device.switch": "Ratones conectados",
   "device.detected": "Ratón detectado",
   "device.wired": "Cable",
   "device.wireless": "Inalámbrico",
@@ -178,4 +181,6 @@ export const es: Record<Key, string> = {
   "dev.model": "Modelo",
   "dev.detectedShort": "Detectado",
   "dev.footer": "Código abierto · MIT · Sin telemetría",
+  "source.saved": "Último guardado — no legible desde el ratón",
+  "source.unset": "Aún sin configurar — elige un valor",
 };

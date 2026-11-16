@@ -9,12 +9,10 @@
 //! * polling rate: `54 00 <code>` with 125 Hz = 4, 250 Hz = 3, 500 Hz = 2, 1000 Hz = 1.
 //! The "save" command (`59 00`), lighting and buttons are never sent.
 
-use std::sync::Mutex;
-
 use hidapi::HidApi;
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const VID: u16 = 0x1038;
@@ -26,9 +24,6 @@ const DPI_MIN: u32 = 50;
 const DPI_MAX: u32 = 18000;
 const DPI_STEP: u32 = 50;
 const POLLING_HZ: [u32; 4] = [125, 250, 500, 1000];
-
-static LAST_DPI: Mutex<Option<u32>> = Mutex::new(None);
-static LAST_POLLING: Mutex<Option<u32>> = Mutex::new(None);
 
 fn name_for(pid: u16) -> Option<&'static str> {
     PIDS.iter().find(|(p, _)| *p == pid).map(|(_, n)| *n)
@@ -53,15 +48,23 @@ pub fn polling_message(hz: u32) -> Option<Vec<u8>> {
     Some(vec![0x54, 0x00, code])
 }
 
-/// Tries the usual output report sizes on every interface of the mouse until one accepts the message.
-fn write_message(message: &[u8]) -> Result<(), String> {
+/// Tries the usual output report sizes on every interface of the matching mouse until one accepts the message.
+fn write_message(target_id: Option<&str>, message: &[u8]) -> Result<(), String> {
     let api = HidApi::new().map_err(|error| error.to_string())?;
     let mut failure = String::from("Sensei Ten not found");
 
     // Interface 0 first (that is the one rivalcfg uses)
     let mut interfaces: Vec<_> = api
         .device_list()
-        .filter(|d| d.vendor_id() == VID && name_for(d.product_id()).is_some())
+        .filter(|d| {
+            if d.vendor_id() != VID {
+                return false;
+            }
+            let Some(name) = name_for(d.product_id()) else {
+                return false;
+            };
+            target_id.map_or(true, |id| canonical_id("steelseries-sensei-ten", name) == id)
+        })
         .collect();
     interfaces.sort_by_key(|d| d.interface_number() != 0);
 
@@ -87,14 +90,16 @@ fn write_message(message: &[u8]) -> Result<(), String> {
 }
 
 fn describe(pid: u16) -> MouseInfoDto {
+    let name = name_for(pid).unwrap_or("SteelSeries Sensei Ten").to_string();
     let mut info = readonly::build(Reading {
+        id: canonical_id("steelseries-sensei-ten", &name),
         brand: "SteelSeries",
-        name: name_for(pid).unwrap_or("SteelSeries Sensei Ten").to_string(),
+        name,
         connection: "wired",
         battery: None,
         charging: false,
-        dpi: *LAST_DPI.lock().unwrap_or_else(|error| error.into_inner()),
-        polling: *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()),
+        dpi: None,
+        polling: None,
     });
     info.dpi_min = DPI_MIN;
     info.dpi_max = DPI_MAX;
@@ -122,26 +127,55 @@ impl MouseDriver for SenseiTenDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
-        let pid = api
-            .device_list()
-            .find(|d| d.vendor_id() == VID && name_for(d.product_id()).is_some())?
-            .product_id();
-        log.push(format!("SteelSeries Sensei Ten {:04X}:{:04X} found (settings are write only)", VID, pid));
-        Some(describe(pid))
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found = Vec::new();
+        for d in api.device_list() {
+            if d.vendor_id() != VID || name_for(d.product_id()).is_none() {
+                continue;
+            }
+            let pid = d.product_id();
+            let info = describe(pid);
+            if !found.iter().any(|existing: &MouseInfoDto| existing.id == info.id) {
+                log.push(format!("SteelSeries Sensei Ten {:04X}:{:04X} found (settings are write only)", VID, pid));
+                merge_device(&mut found, info);
+            }
+        }
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, _probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        api.device_list()
+            .filter(|d| d.vendor_id() == VID && name_for(d.product_id()).is_some())
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
         let message = polling_message(hz)
             .ok_or_else(|| format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz))?;
-        write_message(&message)?;
-        *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()) = Some(hz);
+        write_message(None, &message)?;
         Ok(hz)
     }
 
     fn set_dpi(&self, value: u32) -> Result<u32, String> {
         let (applied, message) = dpi_message(value);
-        write_message(&message)?;
-        *LAST_DPI.lock().unwrap_or_else(|error| error.into_inner()) = Some(applied);
+        write_message(None, &message)?;
+        Ok(applied)
+    }
+
+    fn set_polling_for(&self, device_id: &str, hz: u32) -> Result<u32, String> {
+        let message = polling_message(hz)
+            .ok_or_else(|| format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz))?;
+        write_message(Some(device_id), &message)?;
+        Ok(hz)
+    }
+
+    fn set_dpi_for(&self, device_id: &str, value: u32) -> Result<u32, String> {
+        let (applied, message) = dpi_message(value);
+        write_message(Some(device_id), &message)?;
         Ok(applied)
     }
 }

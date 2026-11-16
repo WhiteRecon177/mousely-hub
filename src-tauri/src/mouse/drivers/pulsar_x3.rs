@@ -26,7 +26,7 @@ use std::time::Duration;
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const VID: u16 = 0x3710;
@@ -163,12 +163,21 @@ fn transact(device: &HidDevice, request: &[u8], is_read: bool) -> Result<Vec<u8>
     }
 }
 
-fn open_control(api: &HidApi) -> Option<(HidDevice, u16)> {
+fn open_control(api: &HidApi, target_id: Option<&str>) -> Option<(HidDevice, u16)> {
     for info in api.device_list() {
-        if info.vendor_id() == VID && name_for(info.product_id()).is_some() && info.interface_number() == INTERFACE {
-            if let Ok(device) = info.open_device(api) {
-                return Some((device, info.product_id()));
+        if info.vendor_id() != VID || info.interface_number() != INTERFACE {
+            continue;
+        }
+        let Some(name) = name_for(info.product_id()) else {
+            continue;
+        };
+        if let Some(expected) = target_id {
+            if canonical_id("pulsar-x3", name) != expected {
+                continue;
             }
+        }
+        if let Ok(device) = info.open_device(api) {
+            return Some((device, info.product_id()));
         }
     }
     None
@@ -205,67 +214,127 @@ impl MouseDriver for PulsarX3Driver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
-        let first_pid = api
-            .device_list()
-            .find(|d| d.vendor_id() == VID && name_for(d.product_id()).is_some())?
-            .product_id();
-        let name = name_for(first_pid).unwrap_or("Pulsar X3");
+        self.probe_all(api, log).into_iter().next()
+    }
 
-        let Some((device, pid)) = open_control(api) else {
-            log.push("Pulsar X3: control interface not available".to_string());
-            return Some(build_info(name, None, false, None, None));
-        };
-        log.push(format!("Pulsar X3 {:04X}:{:04X}: asking battery, DPI and polling", VID, pid));
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found: Vec<MouseInfoDto> = Vec::new();
+        let mut fallback_names: Vec<&'static str> = Vec::new();
 
-        let battery = transact(&device, &build(0x08, 0x81, 0x01, 0, &[]), true).and_then(|percent| {
-            let charging = transact(&device, &build(0x08, 0x83, 0x01, 0, &[]), true).unwrap_or_default();
-            parse_battery(&percent, &charging).ok_or_else(|| "no battery reading".to_string())
-        });
-        log.push(format!("  battery: {:?}", battery));
+        for info in api.device_list() {
+            if info.vendor_id() != VID {
+                continue;
+            }
+            let Some(name) = name_for(info.product_id()) else {
+                continue;
+            };
+            fallback_names.push(name);
+            if info.interface_number() != INTERFACE {
+                continue;
+            }
+            let id = canonical_id("pulsar-x3", name);
+            if found.iter().any(|d| d.id == id) {
+                continue;
+            }
+            let Ok(device) = info.open_device(api) else {
+                continue;
+            };
+            let pid = info.product_id();
+            log.push(format!("Pulsar X3 {:04X}:{:04X}: asking battery, DPI and polling", VID, pid));
 
-        let dpi = active_profile(&device)
-            .and_then(|profile| read_table(&device, profile))
-            .map(|table| table.stages[table.active - 1]);
-        log.push(format!("  dpi: {:?}", dpi));
+            let battery = transact(&device, &build(0x08, 0x81, 0x01, 0, &[]), true).and_then(|percent| {
+                let charging = transact(&device, &build(0x08, 0x83, 0x01, 0, &[]), true).unwrap_or_default();
+                parse_battery(&percent, &charging).ok_or_else(|| "no battery reading".to_string())
+            });
+            log.push(format!("  battery: {:?}", battery));
 
-        let polling = transact(&device, &build(0x01, 0x89, 0x02, 0, &[]), true)
-            .ok()
-            .and_then(|answer| parse_polling(&answer));
-        log.push(format!("  polling: {:?}", polling));
+            let table = active_profile(&device).and_then(|profile| read_table(&device, profile));
+            let (dpi, dpi_levels) = match table {
+                Ok(t) => (Some(t.stages[t.active - 1]), t.stages),
+                Err(_) => (None, Vec::new()),
+            };
+            log.push(format!("  dpi: {:?}, stages: {:?}", dpi, dpi_levels));
 
-        let (percent, charging) = match battery {
-            Ok((percent, charging)) => (Some(percent), charging),
-            Err(_) => (None, false),
-        };
-        Some(build_info(name_for(pid).unwrap_or(name), percent, charging, dpi.ok(), polling))
+            let polling = transact(&device, &build(0x01, 0x89, 0x02, 0, &[]), true)
+                .ok()
+                .and_then(|answer| parse_polling(&answer));
+            log.push(format!("  polling: {:?}", polling));
+
+            let (percent, charging) = match battery {
+                Ok((percent, charging)) => (Some(percent), charging),
+                Err(_) => (None, false),
+            };
+            merge_device(&mut found, build_info(name, percent, charging, dpi, dpi_levels, polling));
+        }
+
+        for name in fallback_names {
+            let id = canonical_id("pulsar-x3", name);
+            if !found.iter().any(|d| d.id == id) {
+                log.push("Pulsar X3: control interface not available".to_string());
+                merge_device(&mut found, build_info(name, None, false, None, Vec::new(), None));
+            }
+        }
+
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, _probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        api.device_list()
+            .filter(|d| d.vendor_id() == VID && name_for(d.product_id()).is_some())
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
-        let message = polling_message(hz)
-            .ok_or_else(|| format!("{} Hz is not available on this mouse (125, 250, 500, 1000)", hz))?;
-        let api = HidApi::new().map_err(|error| error.to_string())?;
-        let (device, _) = open_control(&api).ok_or("Pulsar X3 not found")?;
-        transact(&device, &message, false)?;
-        Ok(hz)
+        write_polling_target(None, hz)
     }
 
     fn set_dpi(&self, value: u32) -> Result<u32, String> {
-        let dpi = round_dpi(value);
-        let api = HidApi::new().map_err(|error| error.to_string())?;
-        let (device, _) = open_control(&api).ok_or("Pulsar X3 not found")?;
+        write_dpi_target(None, value)
+    }
 
-        // Read first: only the active stage of the active profile is changed.
-        let profile = active_profile(&device)?;
-        let mut table = read_table(&device, profile)?;
-        table.stages[table.active - 1] = dpi;
+    fn set_polling_for(&self, device_id: &str, hz: u32) -> Result<u32, String> {
+        write_polling_target(Some(device_id), hz)
+    }
 
-        transact(&device, &dpi_table_message(profile, table.active as u8, &table.stages), false)?;
-        Ok(dpi)
+    fn set_dpi_for(&self, device_id: &str, value: u32) -> Result<u32, String> {
+        write_dpi_target(Some(device_id), value)
     }
 }
 
-fn build_info(name: &str, battery: Option<u32>, charging: bool, dpi: Option<u32>, polling: Option<u32>) -> MouseInfoDto {
+fn write_polling_target(target_id: Option<&str>, hz: u32) -> Result<u32, String> {
+    let message = polling_message(hz)
+        .ok_or_else(|| format!("{} Hz is not available on this mouse (125, 250, 500, 1000)", hz))?;
+    let api = HidApi::new().map_err(|error| error.to_string())?;
+    let (device, _) = open_control(&api, target_id).ok_or("Pulsar X3 not found")?;
+    transact(&device, &message, false)?;
+    Ok(hz)
+}
+
+fn write_dpi_target(target_id: Option<&str>, value: u32) -> Result<u32, String> {
+    let dpi = round_dpi(value);
+    let api = HidApi::new().map_err(|error| error.to_string())?;
+    let (device, _) = open_control(&api, target_id).ok_or("Pulsar X3 not found")?;
+
+    // Read first: only the active stage of the active profile is changed.
+    let profile = active_profile(&device)?;
+    let mut table = read_table(&device, profile)?;
+    table.stages[table.active - 1] = dpi;
+
+    transact(&device, &dpi_table_message(profile, table.active as u8, &table.stages), false)?;
+    Ok(dpi)
+}
+
+fn build_info(
+    name: &str,
+    battery: Option<u32>,
+    charging: bool,
+    dpi: Option<u32>,
+    dpi_levels: Vec<u32>,
+    polling: Option<u32>,
+) -> MouseInfoDto {
     let mut info = readonly::build(Reading {
+        id: canonical_id("pulsar-x3", name),
         brand: "Pulsar",
         name: name.to_string(),
         connection: "wired",
@@ -277,6 +346,9 @@ fn build_info(name: &str, battery: Option<u32>, charging: bool, dpi: Option<u32>
     info.dpi_min = DPI_MIN;
     info.dpi_max = DPI_MAX;
     info.dpi_step = DPI_STEP;
+    if !dpi_levels.is_empty() {
+        info.dpi_levels = dpi_levels;
+    }
     info.polling_options = POLLING.iter().map(|(hz, _)| *hz).collect();
     info.polling_supported = info.polling_options.clone();
     info.capabilities.dpi_write = true;

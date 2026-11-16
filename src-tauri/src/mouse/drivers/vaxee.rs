@@ -13,7 +13,7 @@ use std::time::Duration;
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, merge_device, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const VAXEE_VID: u16 = 0x3057;
@@ -94,6 +94,11 @@ impl MouseDriver for VaxeeDriver {
     }
 
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
+        self.probe_all(api, log).into_iter().next()
+    }
+
+    fn probe_all(&self, api: &HidApi, log: &mut Vec<String>) -> Vec<MouseInfoDto> {
+        let mut found = Vec::new();
         for info in api.device_list() {
             if info.vendor_id() != VAXEE_VID
                 || info.usage_page() != USAGE_PAGE
@@ -138,7 +143,8 @@ impl MouseDriver for VaxeeDriver {
                 .map(|text| text.to_string())
                 .unwrap_or_else(|| "VAXEE mouse".to_string());
 
-            return Some(readonly::build(Reading {
+            merge_device(&mut found, readonly::build(Reading {
+                id: canonical_id("vaxee", &name),
                 brand: "VAXEE",
                 name,
                 connection: if wireless { "wireless" } else { "wired" },
@@ -148,7 +154,17 @@ impl MouseDriver for VaxeeDriver {
                 polling,
             }));
         }
-        None
+        found
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        if probed.is_empty() {
+            return Vec::new();
+        }
+        api.device_list()
+            .filter(|d| d.vendor_id() == VAXEE_VID)
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, _hz: u32) -> Result<u32, String> {

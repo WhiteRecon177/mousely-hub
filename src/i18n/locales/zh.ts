@@ -59,6 +59,9 @@ export const zh: Record<Key, string> = {
   "mouse.resetDefault": "恢复默认",
   "device.looking": "正在查找鼠标...",
   "device.none": "未检测到鼠标",
+  "device.rescan": "重新搜索",
+  "device.notFoundHint": "请确保鼠标或接收器已连接并处于唤醒状态。",
+  "device.switch": "已连接的鼠标",
   "device.detected": "已检测到鼠标",
   "device.wired": "有线",
   "device.wireless": "无线",
@@ -178,4 +181,6 @@ export const zh: Record<Key, string> = {
   "dev.model": "型号",
   "dev.detectedShort": "已检测到",
   "dev.footer": "开源 · MIT · 无遥测",
+  "source.saved": "上次保存 — 无法从鼠标读取",
+  "source.unset": "尚未设置 — 请选择一个值",
 };

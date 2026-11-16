@@ -152,20 +152,21 @@ fn quick_update(app: &AppHandle, plugged: bool) {
 }
 
 fn publish(app: &AppHandle) {
-    let mut result = crate::mouse::commands::probe();
+    let (mut result, _) = crate::mouse::commands::probe_and_sync(app);
 
     // Right after a cable change the receiver can answer half-way ("mouse detected" but nothing
     // readable yet). Do not show that: read again a few times until the full reading is there.
     for _ in 0..6 {
-        let half = crate::mouse::commands::is_half(&result.info);
-        if !half || crate::mouse::commands::last_info().is_none() {
+        let half = crate::mouse::commands::is_asleep();
+        if !half || crate::mouse::commands::last_good_logitech().is_none() {
             break;
         }
         std::thread::sleep(Duration::from_millis(350));
-        result = crate::mouse::commands::probe();
+        result = crate::mouse::commands::probe_and_sync(app).0;
     }
 
-    if crate::mouse::commands::is_half(&result.info) && crate::mouse::commands::last_info().is_some() {
+    if crate::mouse::commands::is_asleep() && crate::mouse::commands::last_good_logitech().is_some()
+    {
         // Still half-way: keep what is on screen; the next reading will fix it.
         return;
     }

@@ -11,11 +11,16 @@ import { useT } from "../../i18n";
 
 function noop(): void {}
 
-export function DpiPage() {
+export function DpiPage({ active = true }: { active?: boolean } = {}) {
   const t = useT();
-  const dpi = useDpi();
+  const dpi = useDpi(active);
   const { info } = dpi;
   const ready = info !== null && info.connected;
+  const multiMouse = dpi.devices.length >= 2;
+  const selectedId = dpi.activeId ?? info?.id ?? null;
+  const activeIdx = multiMouse
+    ? Math.max(0, dpi.devices.findIndex((dev) => dev.id === selectedId))
+    : 0;
 
   const canReset =
     info !== null &&
@@ -34,7 +39,10 @@ export function DpiPage() {
         <span className="dd-screw dd-screw--br" />
 
         <div className="dd-dev-head">
-          <span className="dd-micro">{t("common.device")} · 01</span>
+          <span className="dd-micro">
+            {t("common.device")} · {String(activeIdx + 1).padStart(2, "0")}
+            {multiMouse ? ` / ${String(dpi.devices.length).padStart(2, "0")}` : ""}
+          </span>
           <span className="dd-micro dd-micro--accent">{ready ? info.brand : ""}</span>
         </div>
 
@@ -50,24 +58,63 @@ export function DpiPage() {
 
         <div className="dd-dev-foot">
           <div className="dd-micro">{t("dev.model")}</div>
-          <div className="dd-dev-name">{ready ? info.name : t("device.none")}</div>
+          <div className="dd-dev-name">
+            {ready ? info.name : dpi.scanning ? t("device.looking") : t("device.none")}
+          </div>
           {ready && (
             <div className="dd-micro">
               {info.brand} · {t(CONNECTION_KEYS[info.connection])}
             </div>
           )}
         </div>
+
+        {multiMouse && (
+          <div className="dd-dev-switcher" role="group" aria-label={t("device.switch")}>
+            {dpi.devices.map((dev, idx) => {
+              const isSelected = dev.id === selectedId;
+              return (
+                <button
+                  key={dev.id}
+                  type="button"
+                  className={isSelected ? "dd-dev-pill dd-dev-pill--active" : "dd-dev-pill"}
+                  aria-pressed={isSelected}
+                  title={`${dev.brand} · ${dev.name}`}
+                  disabled={dpi.loading}
+                  onClick={() => void dpi.selectDevice(dev.id)}
+                >
+                  <span className="dd-dev-pill-idx">{String(idx + 1).padStart(2, "0")}</span>
+                  <span className="dd-dev-pill-name">{dev.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       <div className="dd-dpi-right">
-        <DeviceCard info={info} />
+        <DeviceCard info={info} scanning={dpi.scanning} />
+
+        {info !== null && !info.connected && !dpi.scanning && (
+          <div className="dd-dpi-empty-bar">
+            <span className="dd-dpi-empty-hint">{t("device.notFoundHint")}</span>
+            <button
+              type="button"
+              className="dd-dpi-rescan"
+              disabled={dpi.loading}
+              onClick={() => void dpi.rescan()}
+            >
+              {t("device.rescan")}
+            </button>
+          </div>
+        )}
 
         {info !== null && info.connected && (
           <>
-            {!info.capabilities.dpiRead ? (
+            {!info.capabilities.dpiRead && !info.capabilities.dpiWrite ? (
               <div className="dd-dpi-notice">{t("mouse.dpiNotAvailable")}</div>
             ) : info.dpiMax > 0 ? (
               <DpiCard
+                key={info.id}
                 info={info}
                 dpi={dpi.dpi}
                 stages={info.dpiLevels.length > 0 ? info.dpiLevels : dpi.stages}
@@ -84,10 +131,11 @@ export function DpiPage() {
               <div className="dd-dpi-notice">{t("mouse.dpiRangeUnknown")}</div>
             )}
 
-            {!info.capabilities.pollingRead ? (
+            {!info.capabilities.pollingRead && !info.capabilities.pollingWrite ? (
               <div className="dd-dpi-notice">{t("mouse.pollingNotAvailable")}</div>
             ) : (
               <PollingCard
+                key={info.id}
                 info={info}
                 disabled={!POLLING_WRITE_ENABLED || !info.capabilities.pollingWrite}
                 onChange={dpi.setPolling}

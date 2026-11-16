@@ -16,12 +16,10 @@
 //! The "save to the mouse memory" command (`DE`), lighting, buttons and macros are never sent,
 //! so the settings are lost when the mouse is switched off.
 
-use std::sync::Mutex;
-
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const VID: u16 = 0x0951;
@@ -37,8 +35,6 @@ const DPI_MIN: u32 = 50;
 const DPI_MAX: u32 = 16000;
 const DPI_STEP: u32 = 50;
 const POLLING_HZ: [u32; 4] = [125, 250, 500, 1000];
-
-static LAST_POLLING: Mutex<Option<u32>> = Mutex::new(None);
 
 fn is_known(pid: u16) -> bool {
     pid == PID_WIRELESS || pid == PID_WIRED
@@ -137,13 +133,18 @@ fn current_dpi(device: &HidDevice) -> Option<(usize, u32)> {
 }
 
 fn open_control(api: &HidApi, log: &mut Vec<String>) -> Option<(HidDevice, u16)> {
-    for info in api.device_list() {
-        if info.vendor_id() != VID || !is_known(info.product_id()) {
-            continue;
-        }
-        if !is_control_interface(info.product_id(), info.usage_page(), info.interface_number()) {
-            continue;
-        }
+    let mut candidates: Vec<_> = api
+        .device_list()
+        .filter(|info| {
+            info.vendor_id() == VID
+                && is_known(info.product_id())
+                && is_control_interface(info.product_id(), info.usage_page(), info.interface_number())
+        })
+        .collect();
+    // Prefer wired cable over wireless dongle if both are plugged in.
+    candidates.sort_by_key(|info| info.product_id() != PID_WIRED);
+
+    for info in candidates {
         match info.open_device(api) {
             Ok(device) => return Some((device, info.product_id())),
             Err(error) => log.push(format!("  HyperX: cannot open: {}", error)),
@@ -152,16 +153,21 @@ fn open_control(api: &HidApi, log: &mut Vec<String>) -> Option<(HidDevice, u16)>
     None
 }
 
+fn device_id() -> String {
+    canonical_id("hyperx-pulsefire-dart", "HyperX Pulsefire Dart")
+}
+
 fn describe(pid: u16, battery: Option<u32>, charging: bool, dpi: Option<u32>) -> MouseInfoDto {
     let wireless = pid == PID_WIRELESS;
     let mut info = readonly::build(Reading {
+        id: device_id(),
         brand: "HyperX",
         name: "HyperX Pulsefire Dart".to_string(),
         connection: if wireless { "wireless" } else { "wired" },
         battery,
         charging,
         dpi,
-        polling: *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()),
+        polling: None,
     });
     info.dpi_min = DPI_MIN;
     info.dpi_max = DPI_MAX;
@@ -191,8 +197,9 @@ impl MouseDriver for HyperXDriver {
     fn probe(&self, api: &HidApi, log: &mut Vec<String>) -> Option<MouseInfoDto> {
         let first_pid = api
             .device_list()
-            .find(|d| d.vendor_id() == VID && is_known(d.product_id()))
-            .map(|d| d.product_id())?;
+            .filter(|d| d.vendor_id() == VID && is_known(d.product_id()))
+            .map(|d| d.product_id())
+            .min_by_key(|pid| *pid != PID_WIRED)?;
 
         let Some((device, pid)) = open_control(api, log) else {
             return Some(describe(first_pid, None, false, None));
@@ -210,13 +217,19 @@ impl MouseDriver for HyperXDriver {
         Some(describe(pid, percent, charging, dpi))
     }
 
+    fn claimed_usb_ids(&self, api: &HidApi, _probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        api.device_list()
+            .filter(|d| d.vendor_id() == VID && is_known(d.product_id()))
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
+    }
+
     fn set_polling(&self, hz: u32) -> Result<u32, String> {
         let message = polling_packet(hz)
             .ok_or_else(|| format!("{} Hz is not a valid polling rate for this mouse (125, 250, 500, 1000)", hz))?;
         let api = HidApi::new().map_err(|error| error.to_string())?;
         let (device, _) = open_control(&api, &mut Vec::new()).ok_or("HyperX mouse not found")?;
         device.write(&message).map_err(|error| error.to_string())?;
-        *LAST_POLLING.lock().unwrap_or_else(|error| error.into_inner()) = Some(hz);
         Ok(hz)
     }
 
@@ -228,6 +241,20 @@ impl MouseDriver for HyperXDriver {
         let (applied, message) = dpi_packet(active as u8, value);
         device.write(&message).map_err(|error| error.to_string())?;
         Ok(applied)
+    }
+
+    fn set_polling_for(&self, id: &str, hz: u32) -> Result<u32, String> {
+        if id != device_id() {
+            return Err("HyperX mouse not found".to_string());
+        }
+        self.set_polling(hz)
+    }
+
+    fn set_dpi_for(&self, id: &str, value: u32) -> Result<u32, String> {
+        if id != device_id() {
+            return Err("HyperX mouse not found".to_string());
+        }
+        self.set_dpi(value)
     }
 }
 

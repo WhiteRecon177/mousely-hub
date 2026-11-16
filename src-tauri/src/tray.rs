@@ -13,11 +13,11 @@ use tauri::image::Image;
 use tauri::plugin::{Builder, TauriPlugin};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 use tauri::{
-    AppHandle, Manager, PhysicalPosition, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder,
-    WindowEvent,
+    AppHandle, Emitter, Manager, PhysicalPosition, RunEvent, Runtime, WebviewUrl,
+    WebviewWindowBuilder, WindowEvent,
 };
 
-use crate::mouse::commands::probe;
+use crate::mouse::commands::probe_and_sync;
 use crate::mouse::MouseInfoDto;
 use crate::tray_icon::{describe, render, BatteryView, TrayState, SIZE};
 
@@ -271,7 +271,7 @@ pub fn tray_quit(app: AppHandle) {
     app.exit(0);
 }
 
-pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
+pub fn plugin() -> TauriPlugin<tauri::Wry> {
     Builder::new("mousely-hub-tray")
         .setup(|app, _api| {
             if let Ok(mut text) = MENU_TEXT.lock() {
@@ -310,8 +310,10 @@ pub fn plugin<R: Runtime>() -> TauriPlugin<R> {
             let handle = app.clone();
 
             std::thread::spawn(move || loop {
-                let result = probe();
-                apply_state(&handle, state_from(&result.info));
+                let (result, changed) = probe_and_sync(&handle);
+                if changed {
+                    let _ = handle.emit("mouse-changed", &result);
+                }
                 std::thread::sleep(REFRESH_EVERY);
             });
 

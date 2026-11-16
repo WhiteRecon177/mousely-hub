@@ -45,7 +45,7 @@ function App() {
 
       {opened.includes("mouse") && (
         <div hidden={tab !== "mouse"}>
-          <DpiPage />
+          <DpiPage active={tab === "mouse"} />
         </div>
       )}
       {opened.includes("macros") && (

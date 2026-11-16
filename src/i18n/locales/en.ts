@@ -58,6 +58,9 @@ export const en = {
   "mouse.resetDefault": "Reset to default",
   "device.looking": "Looking for mouse...",
   "device.none": "No mouse detected",
+  "device.rescan": "Search again",
+  "device.notFoundHint": "Make sure the mouse or receiver is connected and awake.",
+  "device.switch": "Connected mice",
   "device.detected": "Mouse detected",
   "device.wired": "Wired",
   "device.wireless": "Wireless",
@@ -177,6 +180,8 @@ export const en = {
   "dev.model": "Model",
   "dev.detectedShort": "Detected",
   "dev.footer": "Open source · MIT · No telemetry",
+  "source.saved": "Last saved — cannot be read from mouse",
+  "source.unset": "Not set yet — choose a value",
 } as const;
 
 export type Key = keyof typeof en;

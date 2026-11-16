@@ -17,7 +17,7 @@ use std::sync::Mutex;
 use hidapi::HidApi;
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const ATTACK_SHARK_VID: u16 = 0x1D57;
@@ -135,6 +135,7 @@ impl MouseDriver for AttackSharkDriver {
         log.push(format!("  battery={:?} (last heard)", battery));
 
         Some(readonly::build(Reading {
+            id: canonical_id("attackshark-x11", "Attack Shark X11"),
             brand: "Attack Shark",
             name: "Attack Shark X11".to_string(),
             connection: if wired { "wired" } else { "wireless" },
@@ -143,6 +144,19 @@ impl MouseDriver for AttackSharkDriver {
             dpi: None,
             polling: None,
         }))
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        if probed.is_empty() {
+            return Vec::new();
+        }
+        api.device_list()
+            .filter(|d| {
+                d.vendor_id() == ATTACK_SHARK_VID
+                    && (d.product_id() == PID_DONGLE || d.product_id() == PID_WIRED)
+            })
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, _hz: u32) -> Result<u32, String> {

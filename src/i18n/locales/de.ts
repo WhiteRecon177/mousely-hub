@@ -59,6 +59,9 @@ export const de: Record<Key, string> = {
   "mouse.resetDefault": "Auf Standard zurücksetzen",
   "device.looking": "Suche nach Maus...",
   "device.none": "Keine Maus erkannt",
+  "device.rescan": "Erneut suchen",
+  "device.notFoundHint": "Stelle sicher, dass Maus oder Empfänger verbunden und aktiv sind.",
+  "device.switch": "Verbundene Mäuse",
   "device.detected": "Maus erkannt",
   "device.wired": "Kabel",
   "device.wireless": "Kabellos",
@@ -178,4 +181,6 @@ export const de: Record<Key, string> = {
   "dev.model": "Modell",
   "dev.detectedShort": "Erkannt",
   "dev.footer": "Open Source · MIT · Keine Telemetrie",
+  "source.saved": "Zuletzt gespeichert — von der Maus nicht lesbar",
+  "source.unset": "Noch nicht festgelegt — Wert wählen",
 };

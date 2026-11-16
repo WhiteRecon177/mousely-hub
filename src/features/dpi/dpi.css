@@ -628,6 +628,79 @@
   margin-bottom: 4px;
 }
 
+.dd-dev-switcher {
+  position: relative;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 76px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.dd-dev-pill {
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--card-2) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.14s ease, background-color 0.14s ease, color 0.14s ease;
+}
+
+.dd-dev-pill:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--holo);
+  background: var(--card-2);
+}
+
+.dd-dev-pill--active,
+.dd-dev-pill--active:hover:not(:disabled) {
+  color: var(--text);
+  background: var(--card-2);
+  border-color: var(--holo);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--holo) 26%, transparent);
+}
+
+.dd-dev-pill:focus-visible,
+.dd-dpi-rescan:focus-visible {
+  outline: 2px solid var(--holo);
+  outline-offset: 2px;
+}
+
+.dd-dev-pill-idx {
+  flex: none;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.dd-dev-pill--active .dd-dev-pill-idx {
+  color: var(--holo);
+}
+
+.dd-dev-pill-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
 .dd-dev-name {
   font-size: clamp(18px, 2.8dvh, 22px);
   font-weight: 700;
@@ -733,6 +806,22 @@
   box-shadow: none;
 }
 
+.dd-st-dot--scan {
+  background: var(--holo);
+  box-shadow: 0 0 8px var(--holo);
+  animation: dd-scan-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes dd-scan-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
 .dd-st-cell--batt {
   position: relative;
 }
@@ -803,6 +892,88 @@
   border: 1px solid var(--border);
   border-radius: 10px;
   overflow-wrap: anywhere;
+}
+
+.dd-dpi-source-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: -2px;
+  margin-bottom: clamp(6px, 1dvh, 9px);
+  padding: 3px 10px;
+  font-size: 11px;
+  line-height: 1.3;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--card-2) 55%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow-wrap: anywhere;
+}
+
+.dd-source-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+
+.dd-dpi-source-note--saved {
+  border-color: color-mix(in srgb, var(--warn) 38%, var(--border));
+}
+
+.dd-dpi-source-note--saved .dd-source-dot {
+  background: var(--warn);
+}
+
+.dd-dpi-source-note--unset {
+  border-color: color-mix(in srgb, var(--holo) 38%, var(--border));
+}
+
+.dd-dpi-source-note--unset .dd-source-dot {
+  background: var(--holo);
+}
+
+.dd-dpi-empty-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px clamp(14px, 1.8vw, 20px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: var(--card-shadow);
+  backdrop-filter: blur(10px);
+}
+
+.dd-dpi-empty-hint {
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.dd-dpi-rescan {
+  flex: none;
+  padding: 7px 15px;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--on-accent);
+  background: var(--grad);
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.dd-dpi-rescan:hover:not(:disabled) {
+  box-shadow: var(--accent-glow);
 }
 
 .dd-dpi-notice {
@@ -1152,6 +1323,11 @@
   -moz-appearance: textfield;
 }
 
+.dd-custom-field::placeholder {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
 .dd-custom-field::-webkit-outer-spin-button,
 .dd-custom-field::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -1199,8 +1375,14 @@
   .dd-stage-row,
   .dd-step-btn,
   .dd-custom-field-wrap,
-  .dd-custom-apply {
+  .dd-custom-apply,
+  .dd-dev-pill,
+  .dd-dpi-rescan {
     transition: none;
+  }
+
+  .dd-st-dot--scan {
+    animation: none;
   }
 }
 
@@ -1308,6 +1490,17 @@
 
   .dd-dev-name {
     font-size: 19px;
+  }
+
+  .dd-dev-switcher {
+    margin-top: 6px;
+    max-height: 58px;
+  }
+
+  .dd-dev-pill {
+    padding: 4px 8px;
+    font-size: 11.5px;
+    border-radius: 10px;
   }
 
   .dd-dpi-right {
@@ -1448,6 +1641,10 @@
 }
 
 @media (max-width: 560px) {
+  .dd-dpi-empty-bar {
+    flex-wrap: wrap;
+  }
+
   .dd-status-grid {
     grid-template-columns: minmax(0, 1fr);
   }

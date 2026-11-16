@@ -3,7 +3,7 @@
 //! These drivers only ASK the mouse for its state. They never write a setting, so a wrong byte
 //! cannot change anything on the mouse. They are marked "expected" (not tested on this model).
 
-use crate::mouse::{MouseCapabilitiesDto, MouseInfoDto, SupportLevel};
+use crate::mouse::{MouseCapabilitiesDto, MouseInfoDto, SupportLevel, ValueSource};
 
 pub const POLLING_OPTIONS: [u32; 7] = [125, 250, 500, 1000, 2000, 4000, 8000];
 
@@ -11,6 +11,7 @@ pub const READ_ONLY: &str = "This mouse is read-only for now: Mousely Hub shows 
 
 /// What a read-only driver managed to read. Anything it could not read stays `None`.
 pub struct Reading {
+    pub id: String,
     pub brand: &'static str,
     pub name: String,
     /// "wired", "wireless" or "unknown"
@@ -26,6 +27,7 @@ pub fn build(reading: Reading) -> MouseInfoDto {
     let polling = reading.polling.unwrap_or(0);
 
     MouseInfoDto {
+        id: reading.id,
         connected: true,
         name: reading.name,
         connection: reading.connection.to_string(),
@@ -36,10 +38,20 @@ pub fn build(reading: Reading) -> MouseInfoDto {
         dpi_max: dpi,
         dpi_step: 50,
         dpi_levels: if dpi > 0 { vec![dpi] } else { Vec::new() },
+        dpi_source: if dpi > 0 {
+            ValueSource::Hardware
+        } else {
+            ValueSource::Unset
+        },
         polling_rate: polling,
         polling_options: POLLING_OPTIONS.to_vec(),
         // Only the current value: the screen shows it and nothing else can be picked.
         polling_supported: if polling > 0 { vec![polling] } else { Vec::new() },
+        polling_source: if polling > 0 {
+            ValueSource::Hardware
+        } else {
+            ValueSource::Unset
+        },
         brand: reading.brand.to_string(),
         capabilities: MouseCapabilitiesDto {
             battery: reading.battery.is_some(),
@@ -115,6 +127,7 @@ mod tests {
     #[test]
     fn nothing_read_gives_no_capabilities() {
         let info = build(Reading {
+            id: "test:t".into(),
             brand: "Test",
             name: "T".into(),
             connection: "unknown",
@@ -128,5 +141,7 @@ mod tests {
         assert!(!info.capabilities.polling_read);
         assert!(!info.capabilities.dpi_write && !info.capabilities.polling_write);
         assert!(info.polling_supported.is_empty());
+        assert_eq!(info.dpi_source, ValueSource::Unset);
+        assert_eq!(info.polling_source, ValueSource::Unset);
     }
 }

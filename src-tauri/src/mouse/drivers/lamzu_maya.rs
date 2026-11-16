@@ -14,7 +14,7 @@ use std::time::Duration;
 use hidapi::{HidApi, HidDevice};
 
 use super::readonly::{self, Reading};
-use super::MouseDriver;
+use super::{canonical_id, MouseDriver};
 use crate::mouse::MouseInfoDto;
 
 const LAMZU_VID: u16 = 0x373E;
@@ -109,6 +109,7 @@ impl MouseDriver for LamzuMayaDriver {
             };
 
             return Some(readonly::build(Reading {
+                id: canonical_id("lamzu-maya", "Lamzu Maya X 8K"),
                 brand: "Lamzu",
                 name: "Lamzu Maya X 8K".to_string(),
                 connection: if info.product_id() == PID_CABLE { "wired" } else { "wireless" },
@@ -119,6 +120,16 @@ impl MouseDriver for LamzuMayaDriver {
             }));
         }
         None
+    }
+
+    fn claimed_usb_ids(&self, api: &HidApi, probed: &[MouseInfoDto]) -> Vec<(u16, u16)> {
+        if probed.is_empty() {
+            return Vec::new();
+        }
+        api.device_list()
+            .filter(|d| d.vendor_id() == LAMZU_VID && (d.product_id() == PID_DONGLE || d.product_id() == PID_CABLE))
+            .map(|d| (d.vendor_id(), d.product_id()))
+            .collect()
     }
 
     fn set_polling(&self, _hz: u32) -> Result<u32, String> {

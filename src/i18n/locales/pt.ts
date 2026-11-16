@@ -59,6 +59,9 @@ export const pt: Record<Key, string> = {
   "mouse.resetDefault": "Restaurar padrão",
   "device.looking": "Procurando o mouse...",
   "device.none": "Nenhum mouse detectado",
+  "device.rescan": "Procurar novamente",
+  "device.notFoundHint": "Verifique se o mouse ou o receptor está conectado e ativo.",
+  "device.switch": "Mouses conectados",
   "device.detected": "Mouse detectado",
   "device.wired": "Com fio",
   "device.wireless": "Sem fio",
@@ -178,4 +181,6 @@ export const pt: Record<Key, string> = {
   "dev.model": "Modelo",
   "dev.detectedShort": "Detectado",
   "dev.footer": "Código aberto · MIT · Sem telemetria",
+  "source.saved": "Último salvo — não legível no mouse",
+  "source.unset": "Ainda não definido — escolha um valor",
 };

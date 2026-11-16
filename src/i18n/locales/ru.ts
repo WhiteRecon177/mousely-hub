@@ -59,6 +59,9 @@ export const ru: Record<Key, string> = {
   "mouse.resetDefault": "Сбросить по умолчанию",
   "device.looking": "Поиск мыши...",
   "device.none": "Мышь не обнаружена",
+  "device.rescan": "Искать снова",
+  "device.notFoundHint": "Убедитесь, что мышь или приёмник подключены и активны.",
+  "device.switch": "Подключённые мыши",
   "device.detected": "Мышь обнаружена",
   "device.wired": "Проводное",
   "device.wireless": "Беспроводное",
@@ -178,4 +181,6 @@ export const ru: Record<Key, string> = {
   "dev.model": "Модель",
   "dev.detectedShort": "Обнаружено",
   "dev.footer": "Открытый код · MIT · Без телеметрии",
+  "source.saved": "Последнее сохранённое — мышь не передаёт значение",
+  "source.unset": "Ещё не задано — выберите значение",
 };
